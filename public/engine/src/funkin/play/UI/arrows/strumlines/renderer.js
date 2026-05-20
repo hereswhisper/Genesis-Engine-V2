@@ -13,10 +13,8 @@ class Strum extends Phaser.GameObjects.Sprite {
         this.skinData = skins.get('gameplay.strumline');
         this.dirData = this.skinData.animations[direction];
 
-        // NO SE TOCA EL ORIGEN
         this.setOrigin(0, 0);
 
-        // Guardamos el X y Y "perfectos" (centros calculados por positions.js)
         this.targetX = x;
         this.targetY = y;
 
@@ -32,22 +30,79 @@ class Strum extends Phaser.GameObjects.Sprite {
             this.setFrame(firstFrame);
         }
 
-        // CÁLCULO ORIGINAL MANTENIDO
         this.baseX = x - (this.width * scaleVal) / 2;
         this.baseY = y - (this.height * scaleVal) / 2;
 
         this.isHeld = false;
         this.currentState = 'static';
         this.playAnim('static');
+
+        // PARCHE HMR: Evitar crash de 'indexOf' al guardar código
+        this.scene.events.once('shutdown', this.cleanupHitboxInput, this);
     }
 
-    // NUEVO: Método seguro para reescalar sin romper el Origin
     applyScale(newScale) {
         this.setScale(newScale);
-        // Si el tamaño cambia (ej. a 0.4 en modo mini), recalculamos su base usando el centro exacto
         this.baseX = this.targetX - (this.width * newScale) / 2;
         this.baseY = this.targetY - (this.height * newScale) / 2;
         this.playAnim(this.currentState || 'static');
+
+        if (this.hitbox) {
+            // Ancho actualizado a 1.65
+            const actualWidth = 160 * newScale * 1.65;
+            this.hitbox.setSize(actualWidth, this.hitbox.height);
+            this.hitbox.setX(this.targetX - (actualWidth / 2) + 35);
+        }
+    }
+
+    createMobileHitbox(isVisible) {
+        const height = this.scene.scale.height;
+
+        // Ancho actualizado a 1.65
+        const actualWidth = 160 * this.scaleX * 1.65;
+
+        const hitboxHeight = height / 2;
+        const hitboxY = height / 2;
+
+        const hitboxX = this.targetX - (actualWidth / 2) + 35;
+
+        const colors = [0xc24b99, 0x00ffff, 0x12fa05, 0xf9393f];
+        const color = colors[this.dirID % 4];
+
+        this.hitbox = this.scene.add.rectangle(hitboxX, hitboxY, actualWidth, hitboxHeight, color);
+        this.hitbox.setOrigin(0, 0);
+        this.hitbox.setScrollFactor(0);
+        this.hitbox.setDepth(9999);
+
+        this.hitbox.setFillStyle(color, 1);
+        this.hitbox.setAlpha(isVisible ? 0.35 : 0);
+
+        this.hitbox.setInteractive();
+
+        if (this.scene.input) {
+            this.scene.input.topOnly = false;
+        }
+
+        if (this.scene.referee && this.scene.referee.cameras) {
+            this.scene.referee.cameras.add(this.hitbox, 'ui');
+        }
+
+        const keyMap = { 'left': 37, 'down': 40, 'up': 38, 'right': 39 };
+        const keyCode = keyMap[this.direction];
+
+        const dispatch = (type) => {
+            const event = new KeyboardEvent(type, { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'keyCode', { get: () => keyCode });
+            Object.defineProperty(event, 'which', { get: () => keyCode });
+            window.dispatchEvent(event);
+        };
+
+        this.hitbox.on('pointerdown', () => dispatch('keydown'));
+        this.hitbox.on('pointerover', (pointer) => {
+            if (pointer.isDown) dispatch('keydown');
+        });
+        this.hitbox.on('pointerup', () => dispatch('keyup'));
+        this.hitbox.on('pointerout', () => dispatch('keyup'));
     }
 
     createAnimations(atlasKey) {
@@ -101,7 +156,6 @@ class Strum extends Phaser.GameObjects.Sprite {
             });
         }
 
-        // Ajuste dinámico proporcional de Offsets
         const jsonScale = this.skinData.scale !== undefined ? this.skinData.scale : 0.7;
         const ratio = this.scaleX / jsonScale;
         let offset = this.skinData.offsets[state] || [0, 0];
@@ -110,6 +164,30 @@ class Strum extends Phaser.GameObjects.Sprite {
     }
 
     update(time, delta) {}
+
+    // Función de limpieza segura para HMR
+    cleanupHitboxInput() {
+        if (this.hitbox && this.hitbox.input) {
+            this.hitbox.disableInteractive();
+        }
+    }
+
+    destroy(fromScene) {
+        // SOLUCIÓN: Comprobar que this.scene y this.scene.events existan antes de llamar a off()
+        if (this.scene && this.scene.events) {
+            this.scene.events.off('shutdown', this.cleanupHitboxInput, this);
+        }
+
+        this.cleanupHitboxInput();
+
+        if (this.hitbox) {
+            if (!fromScene) {
+                this.hitbox.destroy();
+            }
+            this.hitbox = null;
+        }
+        super.destroy(fromScene);
+    }
 }
 
 window.Strum = Strum;

@@ -2,16 +2,24 @@
 
 window.GenesisConfig = {
     type: Phaser.AUTO,
-    width: 1280, // Ancho inamovible
-    height: 720, // Alto inamovible
+    parent: "game-container",
+    // Llamamos a la instancia para definir el ancho dinámicamente antes de que arranque el motor
+    width: window.wide ? window.wide.calculatePanoramicWidth() : 1280,
+    height: 720,
+    dom: {
+        createContainer: true,
+    },
     backgroundColor: '#000000',
     scale: {
-        // La magia de Phaser: Escala para caber en pantalla manteniendo proporción 16:9
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     render: {
         pixelArt: false,
         antialias: true,
+    },
+    // Añadimos soporte para múltiples toques (más de 10 dedos simultáneos)
+    input: {
+        activePointers: 12
     }
 };

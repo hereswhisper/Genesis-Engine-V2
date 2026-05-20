@@ -1,5 +1,3 @@
-// src/funkin/menu/free/FreeplayScene.js
-
 class FreeplayScene extends Phaser.Scene {
   constructor() {
     super({ key: "FreeplayScene" });
@@ -29,6 +27,7 @@ class FreeplayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setScale(1.2)
       .setOrigin(0.5);
+
     this.bgFlash = this.add
       .sprite(w / 2, h / 2, "menuBGDesat")
       .setScrollFactor(0)
@@ -40,45 +39,36 @@ class FreeplayScene extends Phaser.Scene {
     this.populateSongs();
 
     this.songsList.forEach((song, i) => {
-      let textObj = new window.Alphabet(
-        this,
-        0,
-        0,
-        song.name.toUpperCase(),
-        true,
-        1,
-      );
+      let textObj = new window.Alphabet(this, 0, 0, song.name.toUpperCase(), true, 1);
       textObj.y = i * 130 + h / 2.5;
       textObj.x = 120;
       textObj.alpha = 0;
       this.alphabetGroup.push(textObj);
     });
 
-    this.scoreBG = this.add
-      .rectangle(w, 0, w * 0.4, 130, 0x000000, 0.6)
-      .setOrigin(1, 0)
-      .setDepth(100)
-      .setScrollFactor(0);
-
-    this.scoreText = this.add
-      .text(w - 15, 15, "", {
+    this.scoreBG = this.add.rectangle(w, 0, w * 0.4, 130, 0x000000, 0.6).setOrigin(1, 0).setDepth(100).setScrollFactor(0);
+    this.scoreText = this.add.text(w - 15, 15, "", {
         fontFamily: "vcr, monospace",
         fontSize: "32px",
         fill: "#ffffff",
         align: "right",
         lineSpacing: 5,
-      })
-      .setOrigin(1, 0)
-      .setDepth(101)
-      .setScrollFactor(0);
+      }).setOrigin(1, 0).setDepth(101).setScrollFactor(0);
+
+    // Botón de Back Táctil
+    if (window.isMobile || window.isReactNative) {
+        this.backBtn = this.add.text(15, 15, "< BACK", {
+            fontFamily: "vcr, monospace",
+            fontSize: "32px",
+            fill: "#ffffff",
+        }).setOrigin(0, 0).setDepth(101).setScrollFactor(0).setInteractive();
+
+        this.backBtn.on('pointerdown', () => { this.goBack(); });
+    }
 
     this.selectedIndex = window.FreeplayState_rememberedIndex || 0;
-
     let currentDiff = this.globalDifficulties[this.currentDiffIndex];
-    this.selectedIndex = this.findClosestValidIndex(
-      this.selectedIndex,
-      currentDiff,
-    );
+    this.selectedIndex = this.findClosestValidIndex(this.selectedIndex, currentDiff);
     this.changeSelection(0, false);
 
     this.canInteract = true;
@@ -95,14 +85,36 @@ class FreeplayScene extends Phaser.Scene {
       else if (deltaY < 0) this.changeSelection(-1);
     });
 
-    let startY = 0;
-    this.input.on("pointerdown", (pointer) => (startY = pointer.y));
+    // SISTEMA DE SWIPE MÓVIL (Soporta Direcciones y Tap)
+    let startX = 0, startY = 0;
+    this.input.on("pointerdown", (pointer) => {
+        startX = pointer.x;
+        startY = pointer.y;
+    });
+
     this.input.on("pointerup", (pointer) => {
-      if (!this.canInteract || !window.isMobile) return;
+      if (!this.canInteract || (!window.isMobile && !window.isReactNative)) return;
+
+      let diffX = pointer.x - startX;
       let diffY = pointer.y - startY;
-      if (diffY < -30) this.changeSelection(1);
-      else if (diffY > 30) this.changeSelection(-1);
-      else if (Math.abs(diffY) < 10) this.confirmSelection();
+
+      // Evaluar si deslizamos más Horizontal que Vertical
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+          // Swipe Horizontal - Cambiar Dificultad
+          if (diffX < 0) this.changeDiff(1); // Swipe hacia la izquierda
+          else this.changeDiff(-1);          // Swipe hacia la derecha
+      } else {
+          // Swipe Vertical - Navegar Lista
+          if (diffY < -30) this.changeSelection(1);
+          else if (diffY > 30) this.changeSelection(-1);
+          else if (Math.abs(diffY) < 10 && Math.abs(diffX) < 10) {
+              // Si no movió mucho el dedo, es un TAP
+              // Evitamos confirmar si tocó el botón de Back
+              if (pointer.y > 60 || pointer.x > 150) {
+                  this.confirmSelection();
+              }
+          }
+      }
     });
 
     this.events.once("shutdown", this.cleanup, this);
@@ -125,11 +137,7 @@ class FreeplayScene extends Phaser.Scene {
         let metaDiffs = window.DataSongs.getSongMeta(trackID, "difficulties");
         let diffs = ["easy", "normal", "hard"];
 
-        if (
-          metaDiffs &&
-          typeof metaDiffs === "object" &&
-          Object.keys(metaDiffs).length > 0
-        ) {
+        if (metaDiffs && typeof metaDiffs === "object" && Object.keys(metaDiffs).length > 0) {
           diffs = Object.keys(metaDiffs);
         }
 
@@ -146,10 +154,7 @@ class FreeplayScene extends Phaser.Scene {
       if (weekData.songs && Array.isArray(weekData.songs)) {
         weekData.songs.forEach((songData) => {
           let rawName = Array.isArray(songData) ? songData[0] : songData;
-          let color =
-            Array.isArray(songData) && songData[2]
-              ? songData[2]
-              : [146, 113, 253];
+          let color = Array.isArray(songData) && songData[2] ? songData[2] : [146, 113, 253];
           addSong(rawName, color);
         });
       } else if (weekData.tracks && Array.isArray(weekData.tracks)) {
@@ -176,8 +181,7 @@ class FreeplayScene extends Phaser.Scene {
       return idxA - idxB;
     });
 
-    if (this.globalDifficulties.length === 0)
-      this.globalDifficulties = ["normal"];
+    if (this.globalDifficulties.length === 0) this.globalDifficulties = ["normal"];
     this.currentDiffIndex = this.globalDifficulties.indexOf("normal");
     if (this.currentDiffIndex === -1) this.currentDiffIndex = 0;
   }
@@ -188,14 +192,10 @@ class FreeplayScene extends Phaser.Scene {
     let song = this.songsList[this.selectedIndex];
     let diffName = this.globalDifficulties[this.currentDiffIndex].toUpperCase();
 
-    let score =
-      localStorage.getItem(`genesis_score_${song.id}_${diffName}`) || 0;
-    let accuracy =
-      localStorage.getItem(`genesis_acc_${song.id}_${diffName}`) || "0.00";
+    let score = localStorage.getItem(`genesis_score_${song.id}_${diffName}`) || 0;
+    let accuracy = localStorage.getItem(`genesis_acc_${song.id}_${diffName}`) || "0.00";
 
-    this.scoreText.setText(
-      `SCORE: ${score}\nACCURACY: ${accuracy}%\n< ${diffName} >`,
-    );
+    this.scoreText.setText(`SCORE: ${score}\nACCURACY: ${accuracy}%\n< ${diffName} >`);
   }
 
   update(time, delta) {
@@ -248,39 +248,29 @@ class FreeplayScene extends Phaser.Scene {
   }
 
   findClosestValidIndex(currentIndex, targetDiff) {
-    if (this.songsList[currentIndex].difficulties.includes(targetDiff))
-      return currentIndex;
+    if (this.songsList[currentIndex].difficulties.includes(targetDiff)) return currentIndex;
 
     let len = this.songsList.length;
     for (let i = 1; i <= len; i++) {
       let forward = (currentIndex + i) % len;
-      if (this.songsList[forward].difficulties.includes(targetDiff))
-        return forward;
+      if (this.songsList[forward].difficulties.includes(targetDiff)) return forward;
 
       let backward = (currentIndex - i + len) % len;
-      if (this.songsList[backward].difficulties.includes(targetDiff))
-        return backward;
+      if (this.songsList[backward].difficulties.includes(targetDiff)) return backward;
     }
     return currentIndex;
   }
 
   changeDiff(change) {
     this.currentDiffIndex += change;
-    if (this.currentDiffIndex < 0)
-      this.currentDiffIndex = this.globalDifficulties.length - 1;
-    if (this.currentDiffIndex >= this.globalDifficulties.length)
-      this.currentDiffIndex = 0;
+    if (this.currentDiffIndex < 0) this.currentDiffIndex = this.globalDifficulties.length - 1;
+    if (this.currentDiffIndex >= this.globalDifficulties.length) this.currentDiffIndex = 0;
 
     let currentDiff = this.globalDifficulties[this.currentDiffIndex];
     this.sound.play("scrollMenu");
 
-    if (
-      !this.songsList[this.selectedIndex].difficulties.includes(currentDiff)
-    ) {
-      this.selectedIndex = this.findClosestValidIndex(
-        this.selectedIndex,
-        currentDiff,
-      );
+    if (!this.songsList[this.selectedIndex].difficulties.includes(currentDiff)) {
+      this.selectedIndex = this.findClosestValidIndex(this.selectedIndex, currentDiff);
       this.changeSelection(0, false);
     } else {
       this.updateScoreText();
@@ -311,11 +301,7 @@ class FreeplayScene extends Phaser.Scene {
 
     let songColors = this.songsList[this.selectedIndex].color;
     if (songColors && songColors.length === 3) {
-      let hexColor = Phaser.Display.Color.GetColor(
-        songColors[0],
-        songColors[1],
-        songColors[2],
-      );
+      let hexColor = Phaser.Display.Color.GetColor(songColors[0], songColors[1], songColors[2]);
       this.bg.setTint(hexColor);
     }
 
@@ -333,12 +319,7 @@ class FreeplayScene extends Phaser.Scene {
 
     this.flicker(this.bgFlash, 1100, 150, false, null, false);
 
-    this.flicker(
-      item,
-      1000,
-      60,
-      true,
-      () => {
+    this.flicker(item, 1000, 60, true, () => {
         this.registry.set("playLoadData", {
           CurrentSong: selectedSong.id,
           Difficulty: selectedDiff.toLowerCase(),
@@ -347,9 +328,7 @@ class FreeplayScene extends Phaser.Scene {
 
         if (window.transitionTo) window.transitionTo(this, "PlayScene");
         else this.scene.start("PlayScene");
-      },
-      true,
-    );
+      }, true);
   }
 
   flicker(target, duration, interval, endState, onComplete, useAlpha = false) {
@@ -358,16 +337,12 @@ class FreeplayScene extends Phaser.Scene {
       delay: interval,
       repeat: count,
       callback: () => {
-        if (useAlpha) {
-          target.alpha = target.alpha > 0.5 ? 0 : 1;
-        } else {
-          target.visible = !target.visible;
-        }
+        if (useAlpha) target.alpha = target.alpha > 0.5 ? 0 : 1;
+        else target.visible = !target.visible;
 
         if (count-- <= 0) {
           if (useAlpha) target.alpha = endState ? 1 : 0;
           else target.visible = endState;
-
           if (onComplete) onComplete();
         }
       },

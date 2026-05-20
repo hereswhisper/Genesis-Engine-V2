@@ -35,7 +35,35 @@ class SustainLogic {
             sustain.isBeingHeld = false;
             sustain.missedNote = true;
             sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
-            sustain.setAlpha(0.3); // Nota fallada se vuelve semi-transparente
+            sustain.setAlpha(0.3);
+
+            if (sustain.sustainLength > 10) {
+                this.scene.events.emit('noteMiss', {
+                    note: { noteData: sustain.noteData },
+                    direction: sustain.direction,
+                    isSustainDrop: true,
+                    health: window.Judgment ? window.Judgment.currentHealth : 1.0
+                });
+            }
+        }
+    }
+
+    onKeyReleaseOpponent(direction) {
+        const sustain = this.activeSustains.find(s => s.direction === direction && s.isBeingHeld && s.noteData.p === 'op');
+        if (sustain) {
+            sustain.isBeingHeld = false;
+            sustain.missedNote = true;
+            sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
+            sustain.setAlpha(0.3);
+
+            if (sustain.sustainLength > 10) {
+                this.scene.events.emit('noteMiss', {
+                    note: { noteData: sustain.noteData },
+                    direction: sustain.direction,
+                    isSustainDrop: true,
+                    health: window.Judgment ? window.Judgment.currentHealth : 1.0
+                });
+            }
         }
     }
 
@@ -48,11 +76,24 @@ class SustainLogic {
 
             sustain.updatePos(songTime, scrollSpeed, delta);
 
-            // SEGURO DE ANIMACIÓN: Si el usuario presiona la nota, forzamos la animación 'confirm'
-            // Esto evita que caiga a "press" o "static" por falta de eventos.
-            if (sustain.isBeingHeld && sustain.noteData.p === 'pl' && !sustain.missedNote) {
-                if (!sustain.strumTarget.anims.currentAnim || !sustain.strumTarget.anims.currentAnim.key.includes('confirm')) {
-                    sustain.strumTarget.playAnim("confirm");
+            if (sustain.isBeingHeld && !sustain.missedNote) {
+
+                const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+                const isOpponentSustain = sustain.noteData.p === 'op';
+
+                const isAI = playerEnemy ? !isOpponentSustain : isOpponentSustain;
+                const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
+
+                if (canGlow) {
+                    if (!sustain.strumTarget.anims.currentAnim || !sustain.strumTarget.anims.currentAnim.key.includes('confirm')) {
+                        sustain.strumTarget.playAnim("confirm");
+                    }
+                }
+
+                const isMainPlayerSustain = playerEnemy ? isOpponentSustain : !isOpponentSustain;
+                if (isMainPlayerSustain && window.Judgment) {
+                    window.Judgment.applyHold(delta);
+                    this.scene.events.emit('healthUpdate', window.Judgment.currentHealth);
                 }
             }
 

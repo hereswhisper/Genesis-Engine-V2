@@ -16,7 +16,6 @@ class IntroTextScene extends Phaser.Scene {
   }
 
   preload() {
-    // CARGA DE FUENTE VCR MEDIANTE LA API NATIVA DE JAVASCRIPT
     const vcrFont = new FontFace('vcr', `url(${Path.fonts}vcr.ttf)`);
     vcrFont.load().then((loadedFont) => {
         document.fonts.add(loadedFont);
@@ -84,6 +83,13 @@ class IntroTextScene extends Phaser.Scene {
       if (Controls.ACCEPT(e)) this.skipIntro();
     };
     window.addEventListener("keydown", this.inputListener);
+
+    // SOPORTE TÁCTIL (Tap para avanzar)
+    if (window.isMobile || window.isReactNative) {
+        this.input.on('pointerdown', () => {
+            this.skipIntro();
+        });
+    }
   }
 
   update() {

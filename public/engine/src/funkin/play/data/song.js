@@ -25,9 +25,7 @@ class Song {
             }
         }
 
-        // PRECARGA DE LOS SONIDOS DE MISS POR DEFECTO (RUTA CORREGIDA)
         ['missnote1', 'missnote2', 'missnote3'].forEach((missPath) => {
-            // Apunta directamente a assets/images/skins/Funkin/miss/
             const fullUrl = window.Path.skins + 'Funkin/miss/' + missPath + '.ogg';
             const cacheKey = `default_${missPath}_miss`;
 
@@ -84,7 +82,6 @@ class Song {
         this.needsVoices = pd.get('audio.needsVoices', true);
         this.multiVocal = pd.get('audio.multiVocal', false);
 
-        // NUEVO: Variable para silenciar los miss
         this.muteMiss = false;
 
         this.instKey = pd.instKey;
@@ -164,26 +161,53 @@ class Song {
     }
 
     onNoteHit(data) {
-        if (data && data.note && data.note.noteData && data.note.noteData.p === 'pl') {
+        if (!data || !data.note || !data.note.noteData) return;
+
+        const isPlayer = data.note.noteData.p === 'pl';
+        const isOpponent = data.note.noteData.p === 'op';
+
+        // Simplemente desmuteamos la voz de la pista correspondiente cuando hay un acierto.
+        if (isPlayer) {
             if (this.playerTrack && this.playerTrack.volume === 0) {
+                this.playerTrack.volume = 1;
+            }
+        } else if (isOpponent) {
+            if (this.opponentTrack && this.opponentTrack.volume === 0) {
+                this.opponentTrack.volume = 1;
+            } else if (this.playerTrack && this.playerTrack.volume === 0 && !this.multiVocal) {
                 this.playerTrack.volume = 1;
             }
         }
     }
 
     onNoteMiss(data) {
-        let isPlayer = true;
-        if (data && data.note && data.note.noteData) {
-            isPlayer = data.note.noteData.p === 'pl';
-        }
+        if (!data || !data.note || !data.note.noteData) return;
 
-        if (isPlayer) {
-            // Muteamos la voz
-            if (this.playerTrack && this.playerTrack.volume > 0) {
-                this.playerTrack.volume = 0;
+        const isPlayer = data.note.noteData.p === 'pl';
+        const isOpponent = data.note.noteData.p === 'op';
+        const isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
+        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+
+        // INVERSIÓN: Determinamos de quién era la nota fallada
+        const isMainPlayerMiss = playerEnemy ? isOpponent : isPlayer;
+
+        // Solo reproducimos fallo si falló el jugador principal, o si estamos en 2Players y falló el secundario
+        if (isMainPlayerMiss || (isTwoPlayersActive && !isMainPlayerMiss)) {
+
+            // 1. Muteamos la voz de quien haya fallado
+            if (isPlayer) {
+                if (this.playerTrack && this.playerTrack.volume > 0) {
+                    this.playerTrack.volume = 0;
+                }
+            } else if (isOpponent) {
+                if (this.opponentTrack && this.opponentTrack.volume > 0) {
+                    this.opponentTrack.volume = 0;
+                } else if (this.playerTrack && this.playerTrack.volume > 0 && !this.multiVocal) {
+                    this.playerTrack.volume = 0;
+                }
             }
 
-            // APLICAMOS LA CONDICIONAL DE MUTEMISS AQUÍ
+            // 2. Ejecutamos el sonido de MISS si no está silenciado explícitamente
             if (!this.muteMiss) {
                 if (this.missSoundKeys.length > 0) {
                     const randomKey = this.missSoundKeys[Math.floor(Math.random() * this.missSoundKeys.length)];

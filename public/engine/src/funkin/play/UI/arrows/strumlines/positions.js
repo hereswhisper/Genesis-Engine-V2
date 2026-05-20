@@ -8,20 +8,24 @@ class ClassicalPosition {
         this.STRUMLINE_Y_OFFSET = 100;
         this.DOWNSCROLL_MARGIN = this.STRUMLINE_Y_OFFSET + 30;
 
-        const logicalSize = { x: 1280, y: 720 };
+        const logicalWidth = window.wide ? window.wide.getCurrentWidth() : this.scene.scale.width;
+        const logicalHeight = this.scene.scale.height;
+        const baseSize = { x: 1280, y: 720 };
+
         this.cutoutSize = {
-            x: Math.max(0, Math.ceil(this.scene.scale.width - logicalSize.x)),
-            y: Math.max(0, Math.ceil(this.scene.scale.height - logicalSize.y))
+            x: Math.max(0, Math.ceil(logicalWidth - baseSize.x)),
+            y: Math.max(0, Math.ceil(logicalHeight - baseSize.y))
         };
     }
 
     getPos(index, isPlayer, baseSpacing, baseScale, globalDownscroll, offsets = [0, 0], middleScroll = 'none', isMobile = false, hideOpStrums = false, hideOpNotes = false) {
-        const width = this.scene.scale.width;
+        const width = window.wide ? window.wide.getCurrentWidth() : this.scene.scale.width;
         const height = this.scene.scale.height;
 
-        const logicalRatio = 1280 / 720;
-        const currentRatio = width / height;
-        const amplification = currentRatio / logicalRatio;
+        const baseWidth = 1280;
+        const baseHeight = 720;
+
+        const amplification = (width / height) / (baseWidth / baseHeight);
 
         let mode = middleScroll;
         if (isMobile) mode = 'mobile';
@@ -31,11 +35,10 @@ class ClassicalPosition {
         let noteAlpha = 1.0;
         let actualDownscroll = globalDownscroll;
 
-        // 1. Escalas Dinámicas, Scroll y Opacidad Base
         if (mode === 'mobile') {
             if (isPlayer) {
-                scale = ((height / width) * 1.95) * amplification;
                 actualDownscroll = true;
+                scale = baseScale * 1.15;
             } else {
                 scale = baseScale * 0.4 * amplification;
                 strumAlpha = 0.3;
@@ -55,31 +58,33 @@ class ClassicalPosition {
             }
         }
 
-        // --- LÓGICA JERÁRQUICA DE OCULTAMIENTO ---
         if (!isPlayer) {
             if (hideOpStrums) {
                 strumAlpha = 0;
                 noteAlpha = 0;
             } else if (hideOpNotes) {
-                noteAlpha = 0; // Se ocultan notas, pero strums mantienen su alpha según el modo
+                noteAlpha = 0;
             }
         }
 
         const spacing = 160 * scale;
         const strumHeight = 160 * scale;
 
-        // 2. Cálculo en el Eje X
+        // Eje X
         let x = 0;
         if (isPlayer) {
-            if (mode === 'mobile' || mode === 'split' || mode === 'mini') {
+            if (mode === 'mobile') {
+                let mobSpacing = spacing + 50;
+                let centerGap = 140 * amplification;
+
+                if (index === 0) x = (width / 2) - centerGap - mobSpacing;
+                else if (index === 1) x = (width / 2) - centerGap;
+                else if (index === 2) x = (width / 2) + centerGap;
+                else if (index === 3) x = (width / 2) + centerGap + mobSpacing;
+
+            } else if (mode === 'split' || mode === 'mini') {
                 let startX = (width / 2) - (spacing * 1.5);
                 x = startX + (index * spacing);
-
-                if (mode === 'mobile') {
-                    const pos = 35 * amplification;
-                    if (index === 0 || index === 1) x -= (pos * 2);
-                    if (index === 2 || index === 3) x += pos;
-                }
             } else {
                 let startX = (width / 2) + this.STRUMLINE_X_OFFSET + (this.cutoutSize.x / 2.5);
                 x = startX + (index * spacing);
@@ -101,7 +106,7 @@ class ClassicalPosition {
             }
         }
 
-        // 3. Cálculo en el Eje Y
+        // Eje Y
         let y = 0;
         let playerYBase = actualDownscroll
             ? (height - this.DOWNSCROLL_MARGIN - offsets[1] - (this.cutoutSize.y / 2))
@@ -109,7 +114,7 @@ class ClassicalPosition {
 
         if (isPlayer && mode === 'mobile') {
             y = (height - strumHeight) * 0.95;
-        } else if (!isPlayer && mode === 'mini' && !isMobile) {
+        } else if (!isPlayer && mode === 'mini' && !window.isMobile) {
             const miniOffset = actualDownscroll ? -30 : 30;
             y = playerYBase + miniOffset;
         } else if (!isPlayer && (mode === 'mini' || mode === 'mobile')) {

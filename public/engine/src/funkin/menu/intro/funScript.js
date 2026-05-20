@@ -13,7 +13,6 @@ class FunScript {
 
         this.sequence = ['LEFT', 'RIGHT', 'LEFT', 'RIGHT', 'UP', 'DOWN', 'UP', 'DOWN'];
 
-        // Variables para el movimiento infinito
         this.fnfBuffer = '';
         this.infinityActive = false;
         this.infinityTime = 0;
@@ -22,6 +21,21 @@ class FunScript {
 
         this.keyListener = (e) => this.handleTextCode(e);
         window.addEventListener('keydown', this.keyListener);
+
+        // SOPORTE TÁCTIL (Swipe para meter el código en móvil)
+        if (window.isMobile || window.isReactNative) {
+            let startX = 0, startY = 0;
+            this.scene.input.on('pointerdown', (p) => { startX = p.x; startY = p.y; });
+            this.scene.input.on('pointerup', (p) => {
+                let dx = p.x - startX;
+                let dy = p.y - startY;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    if (Math.abs(dx) > 30) this.checkInput(dx > 0 ? 'RIGHT' : 'LEFT');
+                } else {
+                    if (Math.abs(dy) > 30) this.checkInput(dy > 0 ? 'DOWN' : 'UP');
+                }
+            });
+        }
 
         this.scene.events.on('update', this.updateInfinity, this);
         this.scene.events.once('shutdown', this.cleanup, this, this);
@@ -79,7 +93,6 @@ class FunScript {
 
     update() {
         if (this.active) return;
-
         if (Controls.UI_LEFT_P) this.checkInput('LEFT');
         else if (Controls.UI_RIGHT_P) this.checkInput('RIGHT');
         else if (Controls.UI_UP_P) this.checkInput('UP');

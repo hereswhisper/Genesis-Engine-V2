@@ -42,18 +42,35 @@ class NoteLogic {
             const diff = songTime - note.noteData.t;
             const strumDownscroll = note.strumTarget ? note.strumTarget.downscroll : false;
 
-            if (diff > window.Judgment.PBOT1_MISS_THRESHOLD) {
-                if (note.noteData.p === 'pl') {
-                    console.log("[Miss] Nota ignorada");
-                    this.scene.events.emit('noteMiss', { note });
+            if (!note.isMissed && diff > window.Judgment.PBOT1_MISS_THRESHOLD) {
+
+                const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+                const isPlayerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+
+                const isPlayer = note.noteData.p === 'pl';
+                const isOpponent = note.noteData.p === 'op';
+
+                // INVERSIÓN: Detectamos si la nota que pasó era tu responsabilidad
+                const isMainPlayerNote = isPlayerEnemy ? isOpponent : isPlayer;
+
+                if (isMainPlayerNote || (isTwoPlayers && !isMainPlayerNote)) {
+
+                    if (isMainPlayerNote && window.Judgment) {
+                        window.Judgment.applyMiss();
+                        window.Judgment.checkGameOver(this.scene);
+                    }
+
+                    this.scene.events.emit('noteMiss', { note, health: window.Judgment ? window.Judgment.currentHealth : 1.0 });
                 }
+
+                note.isMissed = true;
+                note.setAlpha(0.3);
+            }
+
+            if (!strumDownscroll && note.y < -250) {
                 note.destroy();
-            } else {
-                if (!strumDownscroll && note.y < -250) {
-                    note.destroy();
-                } else if (strumDownscroll && note.y > this.scene.scale.height + 250) {
-                    note.destroy();
-                }
+            } else if (strumDownscroll && note.y > this.scene.scale.height + 250) {
+                note.destroy();
             }
         });
     }

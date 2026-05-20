@@ -1,14 +1,18 @@
 [
+  // Dev Core
+  "src/core/hmr-client.js",
+
   // native
   "src/core/native/pc/neutralino.js",
   "src/utils/Storage.js",
 
   // core
+  "src/core/phaser/wide.js",
   "src/core/phaser/config.js",
   "src/core/phaser/HUD.js",
-  "src/core/phaser/wide.js",
 
   // utils
+  "src/utils/Preferences.js",
   "src/utils/Conductor.js",
   "src/utils/Path.js",
   "src/utils/Controls.js",
@@ -19,6 +23,7 @@
   "src/utils/soundtray/renderer.js",
   "src/utils/visuals/TransitionScene.js",
   "src/utils/toast.js",
+  "src/utils/HotReload.js",
 
   // Data
   "src/funkin/DataSongs.js",

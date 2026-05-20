@@ -55,7 +55,7 @@ class NoteSplashLogic {
   }
 
   onNoteHit(data) {
-    if (!data || !data.note || !data.note.noteData) return;
+    if (!data || !data.note || !data.note.noteData || !window.Preferences.noteSplashes) return;
 
     if (data.note.isBotPlay) return;
 

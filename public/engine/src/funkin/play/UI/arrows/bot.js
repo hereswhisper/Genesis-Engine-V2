@@ -3,8 +3,8 @@
 class BotLogic {
   constructor(scene) {
     this.scene = scene;
-    this.enemyBot = true; // Bot del oponente
-    this.botPlay = false; // Bot del jugador
+    this.enemyBot = true;
+    this.playerBot = false;
   }
 
   update(time, delta) {
@@ -14,12 +14,28 @@ class BotLogic {
 
     if (!notesLogic || !strumlines) return;
 
-    const songTime =
-      window.Conductor && window.Conductor.songPosition !== undefined
-        ? window.Conductor.songPosition
-        : 0;
+    const isPlayerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+    const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+    const isBotPlayActive = window.Preferences ? window.Preferences.botplay : false;
 
-    // 1. Lógica para Notas Normales
+    // LÓGICA DE BOTS INTELIGENTE
+    if (isTwoPlayers) {
+        this.enemyBot = false;
+        this.playerBot = false;
+    } else {
+        if (isPlayerEnemy) {
+            // Juegas como el Enemigo
+            this.enemyBot = isBotPlayActive; // Si activas botplay, la IA te controla a ti (enemigo)
+            this.playerBot = true;           // El jugador original pasa a ser controlado por IA
+        } else {
+            // Juegas como el Jugador normal
+            this.enemyBot = true;            // El enemigo original es IA
+            this.playerBot = isBotPlayActive;// Si activas botplay, la IA te controla a ti
+        }
+    }
+
+    const songTime = window.Conductor && window.Conductor.songPosition !== undefined ? window.Conductor.songPosition : 0;
+
     if (notesLogic.activeNotes) {
       notesLogic.activeNotes.getChildren().forEach((note) => {
         const diff = note.noteData.t - songTime;
@@ -27,37 +43,34 @@ class BotLogic {
         if (diff <= 0) {
           if (note.noteData.p === "op" && this.enemyBot) {
             this.hitOpponent(note, strumlines);
-          } else if (note.noteData.p === "pl" && this.botPlay) {
+          } else if (note.noteData.p === "pl" && this.playerBot) {
             this.hitPlayer(note, strumlines);
           }
         }
       });
     }
 
-    // 2. Lógica para Notas Largas (Sustains)
     if (sustainLogic && sustainLogic.activeSustains) {
       sustainLogic.activeSustains.forEach((sustain) => {
-        const isBottingPlayer = sustain.noteData.p === "pl" && this.botPlay;
+        const isBottingPlayer = sustain.noteData.p === "pl" && this.playerBot;
         const isBottingOpponent = sustain.noteData.p === "op" && this.enemyBot;
 
         if (isBottingPlayer || isBottingOpponent) {
-          if (
-            songTime >= sustain.noteData.t &&
-            songTime <= sustain.noteData.t + sustain.fullSustainLength
-          ) {
+          if (songTime >= sustain.noteData.t && songTime <= sustain.noteData.t + sustain.fullSustainLength) {
             sustain.wasGoodHit = true;
             sustain.isBeingHeld = true;
 
-            if (
-              !sustain.strumTarget.anims.currentAnim ||
-              !sustain.strumTarget.anims.currentAnim.key.includes("confirm")
-            ) {
-              sustain.strumTarget.playAnim("confirm");
+            // Restricción de glow dinámico para las IA
+            const isAI = isPlayerEnemy ? sustain.noteData.p === "pl" : sustain.noteData.p === "op";
+            const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
+
+            if (canGlow) {
+                if (!sustain.strumTarget.anims.currentAnim || !sustain.strumTarget.anims.currentAnim.key.includes("confirm")) {
+                    sustain.strumTarget.playAnim("confirm");
+                }
             }
-          } else if (
-            songTime >
-            sustain.noteData.t + sustain.fullSustainLength
-          ) {
+
+          } else if (songTime > sustain.noteData.t + sustain.fullSustainLength) {
             sustain.isBeingHeld = false;
             sustain.strumTarget.playAnim("static");
           }
@@ -67,28 +80,27 @@ class BotLogic {
   }
 
   hitOpponent(note, strumlines) {
-    const strum = strumlines.opponentStrums
-      .getChildren()
-      .find((s) => s.direction === note.direction);
+    const strum = strumlines.opponentStrums.getChildren().find((s) => s.direction === note.direction);
     if (strum) {
-      // INDICADOR CLAVE: Le decimos al motor que esta nota fue tocada por la IA rival
       note.isBotPlay = true;
-
-      // Emitimos el evento de forma limpia por si lo requieres para otra cosa
       this.scene.events.emit("noteHit", { note: note });
 
-      strum.playAnim("confirm");
+      const isPlayerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+      const isAI = !isPlayerEnemy;
+      const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
+
+      if (canGlow) {
+          strum.playAnim("confirm");
+      }
     }
     note.destroy();
   }
 
   hitPlayer(note, strumlines) {
-    const strum = strumlines.playerStrums
-      .getChildren()
-      .find((s) => s.direction === note.direction);
+    const strum = strumlines.playerStrums.getChildren().find((s) => s.direction === note.direction);
     if (strum) {
       note.isBotPlay = true;
-      strumlines.processHit(note, 0, strum);
+      strumlines.processHit(note, 0, strum, false); // Esto emitirá el noteHit de forma natural y procesará el Glow IA en StrumlineLogic
     } else {
       note.destroy();
     }
