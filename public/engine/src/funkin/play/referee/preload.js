@@ -6,6 +6,25 @@ class PlayRefereePreload {
     window.Stage.preload(scene);
     window.Song.preload(scene);
 
+    if (window.RatingLogic && typeof window.RatingLogic.preload === 'function') {
+        window.RatingLogic.preload(scene);
+    } else {
+        console.warn("[PlayRefereePreload] RatingLogic no está definido.");
+    }
+
+    if (window.ComboLogic && typeof window.ComboLogic.preload === 'function') {
+        window.ComboLogic.preload(scene);
+    } else {
+        console.warn("[PlayRefereePreload] ComboLogic no está definido.");
+    }
+
+    // NUEVO: Preload de los elementos visuales de la barra de vida
+    if (window.HealthLogic && typeof window.HealthLogic.preload === 'function') {
+        window.HealthLogic.preload(scene);
+    } else {
+        console.warn("[PlayRefereePreload] HealthLogic no está definido. Revisa su importación.");
+    }
+
     const songName = scene.playData.get("song", "test");
     const chartPath = scene.playData.getChartPath();
     scene.load.json(`chart_${songName}`, chartPath);
@@ -26,7 +45,6 @@ class PlayRefereePreload {
           `${window.Path.skins}${basePath}/${pathName}.xml`,
         );
 
-        // Aplicar el Pixel Art global si se requiere
         scene.load.once("filecomplete-atlasxml-" + fullKey, () => {
           if (!antialiasing && scene.textures.exists(fullKey)) {
             scene.textures

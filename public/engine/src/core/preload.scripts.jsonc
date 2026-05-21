@@ -12,6 +12,7 @@
   "src/core/phaser/HUD.js",
 
   // utils
+  "src/utils/network/network.js",
   "src/utils/Preferences.js",
   "src/utils/Conductor.js",
   "src/utils/Path.js",
@@ -65,6 +66,15 @@
   "src/funkin/play/UI/arrows/splash/renderer.js",
 
   "src/funkin/play/UI/arrows/bot.js",
+
+  "src/funkin/play/UI/pop/rating/renderer.js",
+  "src/funkin/play/UI/pop/rating/logic.js",
+
+  "src/funkin/play/UI/pop/combo/renderer.js",
+  "src/funkin/play/UI/pop/combo/logic.js",
+
+  "src/funkin/play/UI/health/logic.js",
+  "src/funkin/play/UI/health/renderer.js",
 
   "src/funkin/play/Judgment.js",
 

@@ -38,11 +38,13 @@ class SustainLogic {
             sustain.setAlpha(0.3);
 
             if (sustain.sustainLength > 10) {
+                if (window.Health) window.Health.applyMiss(false); // Castigo al soltar la sustain P1
+
                 this.scene.events.emit('noteMiss', {
                     note: { noteData: sustain.noteData },
                     direction: sustain.direction,
                     isSustainDrop: true,
-                    health: window.Judgment ? window.Judgment.currentHealth : 1.0
+                    health: window.Health ? window.Health.currentHealth : 1.0
                 });
             }
         }
@@ -57,11 +59,13 @@ class SustainLogic {
             sustain.setAlpha(0.3);
 
             if (sustain.sustainLength > 10) {
+                if (window.Health) window.Health.applyMiss(true); // Castigo al soltar la sustain P2
+
                 this.scene.events.emit('noteMiss', {
                     note: { noteData: sustain.noteData },
                     direction: sustain.direction,
                     isSustainDrop: true,
-                    health: window.Judgment ? window.Judgment.currentHealth : 1.0
+                    health: window.Health ? window.Health.currentHealth : 1.0
                 });
             }
         }
@@ -90,10 +94,10 @@ class SustainLogic {
                     }
                 }
 
-                const isMainPlayerSustain = playerEnemy ? isOpponentSustain : !isOpponentSustain;
-                if (isMainPlayerSustain && window.Judgment) {
-                    window.Judgment.applyHold(delta);
-                    this.scene.events.emit('healthUpdate', window.Judgment.currentHealth);
+                // AHORA USA HEALTH NATIVO (Soporta multijugador enviando el isOpponent param)
+                if (window.Health) {
+                    window.Health.applyHold(delta, isOpponentSustain);
+                    this.scene.events.emit('healthUpdate', window.Health.currentHealth);
                 }
             }
 

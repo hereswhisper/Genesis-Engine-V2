@@ -24,7 +24,8 @@ class StrumlineLogic {
     this.mobileStrums = window.isMobile || window.isReactNative || false;
     this.visibleHitboxes = true;
 
-    if (window.Judgment) window.Judgment.resetHealth();
+    // AHORA USA HEALTH (Reinicia al montar)
+    if (window.Health) window.Health.resetHealth();
 
     this.createStrumlines();
 
@@ -146,29 +147,21 @@ class StrumlineLogic {
   }
 
   processInput(dir, isDown, isOpponent) {
-    // --- LÓGICA DE BLOQUEO INTELIGENTE DE INPUTS ---
     const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
     const isPlayerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
     const isBotPlayActive = window.Preferences ? window.Preferences.botplay : false;
 
     let isBottingThisSide = false;
 
-    // Si estamos en modo de 1 jugador, revisamos qué lado tiene la IA activa
     if (!isTwoPlayers) {
         if (isOpponent) {
-            // El lado del enemigo es controlado por IA a menos que lo estés jugando tú
             isBottingThisSide = isPlayerEnemy ? isBotPlayActive : true;
         } else {
-            // El lado del jugador es controlado por IA si el botplay está encendido
-            // o si tú te fuiste a jugar al lado del enemigo
             isBottingThisSide = isPlayerEnemy ? true : isBotPlayActive;
         }
     }
 
-    // SI LA IA CONTROLA ESTE LADO, BLOQUEAMOS COMPLETAMENTE LA INTERACCIÓN HUMANA
-    // Esto previene que se manden eventos de 'ghostMiss' por pulsar teclas vacías.
     if (isBottingThisSide) return;
-    // ------------------------------------------------
 
     const strumsGroup = isOpponent ? this.opponentStrums : this.playerStrums;
     if (!strumsGroup) return;
@@ -246,15 +239,16 @@ class StrumlineLogic {
     const rating = window.Judgment.getRating(diff);
     const score = window.Judgment.calculateScore(diff);
 
-    const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-    const isMainPlayer = playerEnemy ? isOpponent : !isOpponent;
-
-    if (window.Judgment && isMainPlayer) {
-        window.Judgment.applyHit(rating);
-        window.Judgment.checkGameOver(this.scene);
+    // AHORA USA HEALTH directamente sobre el módulo (Soporte Multi Jugador / Player Enemy nativo)
+    if (window.Health) {
+        window.Health.applyHit(rating, isOpponent);
+        window.Health.checkGameOver(this.scene);
     }
 
-    this.scene.events.emit("noteHit", { note, rating, score, health: window.Judgment ? window.Judgment.currentHealth : 1.0 });
+    this.scene.events.emit("noteHit", { note, rating, score, health: window.Health ? window.Health.currentHealth : 1.0 });
+
+    const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+    const isMainPlayer = playerEnemy ? isOpponent : !isOpponent;
 
     const isAI = !isMainPlayer;
     const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
@@ -273,15 +267,13 @@ class StrumlineLogic {
   processGhostMiss(strum, isOpponent) {
     strum.playAnim("press");
 
-    const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-    const isMainPlayer = playerEnemy ? isOpponent : !isOpponent;
-
-    if (window.Judgment && isMainPlayer) {
-        window.Judgment.applyGhostMiss();
-        window.Judgment.checkGameOver(this.scene);
+    // AHORA USA HEALTH (Soporte Multi Jugador)
+    if (window.Health) {
+        window.Health.applyGhostMiss(isOpponent);
+        window.Health.checkGameOver(this.scene);
     }
 
-    this.scene.events.emit("ghostMiss", { direction: strum.direction, isOpponent, health: window.Judgment ? window.Judgment.currentHealth : 1.0 });
+    this.scene.events.emit("ghostMiss", { direction: strum.direction, isOpponent, health: window.Health ? window.Health.currentHealth : 1.0 });
   }
 
   update(time, delta) {

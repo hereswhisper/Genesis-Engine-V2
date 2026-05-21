@@ -23,6 +23,12 @@ class PlayReferee {
     this.bot = new window.BotLogic(this.scene);
 
     this.countdown = new window.CountDownLogic(this.scene);
+
+    this.ratingLogic = new window.RatingLogic(this.scene || this);
+    this.comboLogic = new window.ComboLogic(this.scene || this);
+
+    // NUEVO: Instanciar lógica y control de vida
+    this.healthLogic = new window.HealthLogic(this.scene || this);
   }
 }
 

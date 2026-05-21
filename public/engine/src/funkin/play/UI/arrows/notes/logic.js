@@ -44,24 +44,15 @@ class NoteLogic {
 
             if (!note.isMissed && diff > window.Judgment.PBOT1_MISS_THRESHOLD) {
 
-                const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-                const isPlayerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-
-                const isPlayer = note.noteData.p === 'pl';
                 const isOpponent = note.noteData.p === 'op';
 
-                // INVERSIÓN: Detectamos si la nota que pasó era tu responsabilidad
-                const isMainPlayerNote = isPlayerEnemy ? isOpponent : isPlayer;
-
-                if (isMainPlayerNote || (isTwoPlayers && !isMainPlayerNote)) {
-
-                    if (isMainPlayerNote && window.Judgment) {
-                        window.Judgment.applyMiss();
-                        window.Judgment.checkGameOver(this.scene);
-                    }
-
-                    this.scene.events.emit('noteMiss', { note, health: window.Judgment ? window.Judgment.currentHealth : 1.0 });
+                // AHORA USA HEALTH DIRECTAMENTE
+                if (window.Health) {
+                    window.Health.applyMiss(isOpponent);
+                    window.Health.checkGameOver(this.scene);
                 }
+
+                this.scene.events.emit('noteMiss', { note, health: window.Health ? window.Health.currentHealth : 1.0 });
 
                 note.isMissed = true;
                 note.setAlpha(0.3);
