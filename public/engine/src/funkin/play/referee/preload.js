@@ -18,7 +18,6 @@ class PlayRefereePreload {
         console.warn("[PlayRefereePreload] ComboLogic no está definido.");
     }
 
-    // NUEVO: Preload de los elementos visuales de la barra de vida
     if (window.HealthLogic && typeof window.HealthLogic.preload === 'function') {
         window.HealthLogic.preload(scene);
     } else {
@@ -58,6 +57,14 @@ class PlayRefereePreload {
       loadXML(data.gameplay?.notes?.path);
       loadXML(data.gameplay?.sustains?.path);
       loadXML(data.gameplay?.noteSplashes?.path);
+
+      // SOLUCIÓN: Precargar los XML dinámicos de los HoldCovers
+      const holdDirs = data.gameplay?.holdCovers?.directions;
+      if (holdDirs) {
+          Object.values(holdDirs).forEach(dir => {
+              loadXML(dir.path);
+          });
+      }
     };
 
     if (scene.cache.json.exists(jsonKey)) {

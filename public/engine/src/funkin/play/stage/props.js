@@ -1,5 +1,59 @@
 // src/funkin/play/stage/props.js
 
+// Definimos el Pipeline FUERA de la clase StageProps para evitar errores de Scope con el HMR
+class CustomChromaPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline {
+  constructor(game) {
+    super({
+      game: game,
+      renderTarget: true,
+      fragShader: `
+                  precision mediump float;
+                  uniform sampler2D uMainSampler;
+                  uniform vec3 uColor;
+                  uniform float uTolerance;
+                  uniform float uSensitivity;
+                  varying vec2 outTexCoord;
+
+                  void main() {
+                      vec4 texColor = texture2D(uMainSampler, outTexCoord);
+
+                      // Ignorar si ya es transparente
+                      if (texColor.a < 0.0001) {
+                          gl_FragColor = vec4(0.0);
+                          return;
+                      }
+
+                      // Extraer RGB puro
+                      vec3 rgb = texColor.rgb / texColor.a;
+                      float distance = length(rgb - uColor);
+
+                      // Blend para borrado de color
+                      float alphaBlend = smoothstep(uTolerance, uTolerance + uSensitivity, distance);
+
+                      // ALGORITMO ANTI-HALO (Spill Suppression)
+                      vec3 cleanColor = mix(rgb, rgb + (rgb - uColor) * 0.8, 1.0 - alphaBlend);
+                      cleanColor = clamp(cleanColor, 0.0, 1.0);
+
+                      float finalAlpha = texColor.a * alphaBlend;
+                      gl_FragColor = vec4(cleanColor * finalAlpha, finalAlpha);
+                  }
+                  `,
+    });
+
+    this.uColor = [0.0, 0.0, 0.0];
+    this.uTolerance = 0.1;
+    this.uSensitivity = 0.1;
+  }
+
+  onPreRender() {
+    if (this.uColor) {
+      this.set3f("uColor", this.uColor[0], this.uColor[1], this.uColor[2]);
+    }
+    this.set1f("uTolerance", this.uTolerance);
+    this.set1f("uSensitivity", this.uSensitivity);
+  }
+}
+
 class StageProps {
   static apply(obj, item) {
     if (!obj) return;
@@ -47,25 +101,14 @@ class StageProps {
       let tolerance = 0.1;
       let sensitivity = 0.1;
 
-      // Soporte para el formato de Objeto
       if (typeof item.chromaKey === "object") {
         hexColor = item.chromaKey.color || "#000000";
-        tolerance =
-          item.chromaKey.tolerance !== undefined
-            ? item.chromaKey.tolerance
-            : 0.1;
-        sensitivity =
-          item.chromaKey.sensitivity !== undefined
-            ? item.chromaKey.sensitivity
-            : 0.1;
-      }
-      // Soporte antiguo (String plano)
-      else {
+        tolerance = item.chromaKey.tolerance !== undefined ? item.chromaKey.tolerance : 0.1;
+        sensitivity = item.chromaKey.sensitivity !== undefined ? item.chromaKey.sensitivity : 0.1;
+      } else {
         hexColor = item.chromaKey;
-        tolerance =
-          item.chromaTolerance !== undefined ? item.chromaTolerance : 0.1;
-        sensitivity =
-          item.chromaSensitivity !== undefined ? item.chromaSensitivity : 0.1;
+        tolerance = item.chromaTolerance !== undefined ? item.chromaTolerance : 0.1;
+        sensitivity = item.chromaSensitivity !== undefined ? item.chromaSensitivity : 0.1;
       }
 
       this.applyChromaKey(obj, hexColor, tolerance, sensitivity);
@@ -75,88 +118,24 @@ class StageProps {
   static applyChromaKey(obj, hexColor, tolerance = 0.1, sensitivity = 0.1) {
     const pipelineName = "ChromaKeyPipeline";
 
-    // Registramos el pipeline dinámicamente en el motor si no existe aún
+    // Registramos el pipeline dinámicamente si no existe aún usando la clase extraída
     if (!obj.scene.renderer.pipelines.has(pipelineName)) {
-      class CustomChromaPipeline
-        extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline
-      {
-        constructor(game) {
-          super({
-            game: game,
-            renderTarget: true,
-            fragShader: `
-                        precision mediump float;
-                        uniform sampler2D uMainSampler;
-                        uniform vec3 uColor;
-                        uniform float uTolerance;
-                        uniform float uSensitivity;
-                        varying vec2 outTexCoord;
-
-                        void main() {
-                            vec4 texColor = texture2D(uMainSampler, outTexCoord);
-
-                            // Ignorar si ya es transparente
-                            if (texColor.a < 0.0001) {
-                                gl_FragColor = vec4(0.0);
-                                return;
-                            }
-
-                            // Extraer RGB puro
-                            vec3 rgb = texColor.rgb / texColor.a;
-                            float distance = length(rgb - uColor);
-
-                            // Blend para borrado de color
-                            float alphaBlend = smoothstep(uTolerance, uTolerance + uSensitivity, distance);
-
-                            // ALGORITMO ANTI-HALO (Spill Suppression)
-                            // "Lava" la oscuridad residual para que los gradientes amarillos queden limpios
-                            vec3 cleanColor = mix(rgb, rgb + (rgb - uColor) * 0.8, 1.0 - alphaBlend);
-                            cleanColor = clamp(cleanColor, 0.0, 1.0);
-
-                            float finalAlpha = texColor.a * alphaBlend;
-                            gl_FragColor = vec4(cleanColor * finalAlpha, finalAlpha);
-                        }
-                        `,
-          });
-
-          // Inicializamos variables con valores por defecto
-          this.uColor = [0.0, 0.0, 0.0];
-          this.uTolerance = 0.1;
-          this.uSensitivity = 0.1;
-        }
-
-        onPreRender() {
-          if (this.uColor) {
-            this.set3f(
-              "uColor",
-              this.uColor[0],
-              this.uColor[1],
-              this.uColor[2],
-            );
-          }
-          this.set1f("uTolerance", this.uTolerance);
-          this.set1f("uSensitivity", this.uSensitivity);
-        }
-      }
-      obj.scene.renderer.pipelines.addPostPipeline(
-        pipelineName,
-        CustomChromaPipeline,
-      );
+      obj.scene.renderer.pipelines.addPostPipeline(pipelineName, CustomChromaPipeline);
     }
 
     let color = Phaser.Display.Color.HexStringToColor(hexColor);
 
-    // 1. Aplicamos el pipeline al objeto (esto devuelve el SPRITE)
+    // 1. Aplicamos el pipeline al objeto
     obj.setPostPipeline(pipelineName);
 
-    // 2. CORRECCIÓN: Usamos getPostPipeline para obtener la instancia real del SHADER
+    // 2. Usamos getPostPipeline para obtener la instancia real
     let pipelineInstance = obj.getPostPipeline(pipelineName);
 
     if (Array.isArray(pipelineInstance)) {
       pipelineInstance = pipelineInstance[pipelineInstance.length - 1];
     }
 
-    // 3. Inyectamos los valores del JSON directamente en el Shader
+    // 3. Inyectamos los valores
     if (pipelineInstance) {
       pipelineInstance.uColor = [color.r / 255, color.g / 255, color.b / 255];
       pipelineInstance.uTolerance = parseFloat(tolerance);

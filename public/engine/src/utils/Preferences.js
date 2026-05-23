@@ -26,7 +26,7 @@ class Preferences {
      * @type {boolean}
      * @description Lets the AI automatically play the charts for the player.
      */
-    static botplay = false;
+    static botplay = true ;
 
     /**
      * @type {boolean}
@@ -110,23 +110,23 @@ class Preferences {
         };
 
         // Loading basic mechanics
-        this.ghostTapping = getBool('genesis_ghost_tapping', true);
-        this.downscroll = getBool('genesis_downscroll', false);
-        this.middleScroll = getString('genesis_middle_scroll', 'none');
-        this.botplay = getBool('genesis_botplay', false);
-        this.twoPlayers = getBool('genesis_2players', false);
+        this.ghostTapping = getBool('genesis_ghost_tapping', this.ghostTapping);
+        this.downscroll = getBool('genesis_downscroll', this.downscroll);
+        this.middleScroll = getString('genesis_middle_scroll', this.middleScroll);
+        this.botplay = getBool('genesis_botplay', this.botplay);
+        this.twoPlayers = getBool('genesis_2players', this.twoPlayers);
 
         // Loading UI preferences
-        this.noteSplashes = getBool('genesis_note_splashes', true);
-        this.opponentGlow = getBool('genesis_opponent_glow', true);
-        this.hideOpStrums = getBool('genesis_hide_op_strums', false);
-        this.hideOpNotes = getBool('genesis_hide_op_notes', false);
-        this.playerEnemy = getBool('genesis_player_enemy', false);
+        this.noteSplashes = getBool('genesis_note_splashes', this.noteSplashes);
+        this.opponentGlow = getBool('genesis_opponent_glow', this.opponentGlow);
+        this.hideOpStrums = getBool('genesis_hide_op_strums', this.hideOpStrums);
+        this.hideOpNotes = getBool('genesis_hide_op_notes', this.hideOpNotes);
+        this.playerEnemy = getBool('genesis_player_enemy', this.playerEnemy);
 
         // Loading rating pop-up settings
-        this.popUpAnim = getString('genesis_popup_anim', 'default');
-        this.popUpPos = getArray('genesis_popup_pos', [50, 42]);
-        this.showOpPopUp = getBool('genesis_show_op_popup', true);
+        this.popUpAnim = getString('genesis_popup_anim', this.popUpAnim);
+        this.popUpPos = getArray('genesis_popup_pos', this.popUpPos);
+        this.showOpPopUp = getBool('genesis_show_op_popup', this.showOpPopUp);
     }
 
     /**

@@ -3,7 +3,11 @@
 class StageImages {
     static getPath(folder, namePath) {
         const hasExt = /\.[a-zA-Z0-9]+$/.test(namePath);
-        return window.Path.stages + folder + '/' + (hasExt ? namePath : namePath + '.png');
+        const isCustomPath = namePath.includes('/');
+        const finalName = hasExt ? namePath : namePath + '.png';
+
+        // Si tiene su propia ruta (contiene '/'), ignora el 'folder' (pathName raíz)
+        return window.Path.stages + (isCustomPath ? finalName : folder + '/' + finalName);
     }
 
     static preload(scene, folder, item) {

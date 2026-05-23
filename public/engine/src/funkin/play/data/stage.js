@@ -18,8 +18,13 @@ class Stage {
 
     static loadAssets(scene, data, stageName) {
         const folder = data.pathName || stageName;
-        const elements = data.stage || [];
 
+        // Precarga del background desde la raíz del JSON si es una imagen
+        if (data.background && typeof data.background === 'string' && !data.background.startsWith('#')) {
+            window.StageImages.preload(scene, folder, { namePath: data.background });
+        }
+
+        const elements = data.stage || [];
         for (const item of elements) {
             if (item.type === 'image') window.StageImages.preload(scene, folder, item);
             else if (item.type === 'spritesheet') window.StageXML.preload(scene, folder, item);
@@ -43,6 +48,11 @@ class Stage {
     }
 
     build() {
+        // Enlazar la nueva lógica separada en bg.js
+        if (this.data.background && window.StageBackground) {
+            window.StageBackground.apply(this.scene, this.folder, this.data.background, this.elements);
+        }
+
         const stageArray = this.data.stage || [];
         const sorted = [...stageArray].sort((a, b) => (a.layer || 0) - (b.layer || 0));
 
@@ -57,7 +67,9 @@ class Stage {
 
             if (obj) {
                 window.StageProps.apply(obj, item);
-                if (this.scene.referee.cameras) this.scene.referee.cameras.add(obj, 'game');
+                if (this.scene.referee && this.scene.referee.cameras) {
+                    this.scene.referee.cameras.add(obj, 'game');
+                }
                 this.elements.push(obj);
             }
         }

@@ -22,12 +22,10 @@ class Note extends Phaser.GameObjects.Sprite {
         const finalScale = this.strumTarget.scaleX !== undefined ? this.strumTarget.scaleX : jsonScale;
         this.setScale(finalScale);
 
-        // Hereda la opacidad dinámica limpia
         const jsonAlpha = Number(this.skinData.alpha !== undefined ? this.skinData.alpha : 1.0);
         const targetAlpha = this.strumTarget.noteAlpha !== undefined ? this.strumTarget.noteAlpha : jsonAlpha;
         this.setAlpha(targetAlpha);
 
-        // Si la opacidad es 0, optimizamos ocultándolo de Phaser
         if (targetAlpha <= 0) this.setVisible(false);
 
         this.createAnimations(atlasKey);
@@ -86,8 +84,24 @@ class Note extends Phaser.GameObjects.Sprite {
         const strumDownscroll = this.strumTarget.downscroll;
         const dir = strumDownscroll ? -1 : 1;
 
-        const currentY = this.targetY + (timeDiff * 0.45 * scrollSpeed * dir);
-        this.setPosition(this.baseOffsetX, currentY);
+        const animOffX = this.strumTarget.animOffsetX || 0;
+        const animOffY = this.strumTarget.animOffsetY || 0;
+
+        // Desplazamiento dinámico del carril ignorando el offset visual de la animación
+        const deltaX = (this.strumTarget.x - animOffX) - this.strumTarget.baseX;
+        const deltaY = (this.strumTarget.y - animOffY) - this.strumTarget.baseY;
+        const rot = this.strumTarget.rotation;
+
+        const dist = timeDiff * 0.45 * scrollSpeed * dir;
+
+        const offsetX = -dist * Math.sin(rot);
+        const offsetY = dist * Math.cos(rot);
+
+        const currentX = this.baseOffsetX + deltaX + offsetX;
+        const currentY = this.targetY + deltaY + offsetY;
+
+        this.setPosition(currentX, currentY);
+        this.setRotation(rot);
     }
 }
 

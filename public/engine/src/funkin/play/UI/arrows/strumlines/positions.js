@@ -67,7 +67,14 @@ class ClassicalPosition {
             }
         }
 
-        const spacing = 160 * scale;
+        // SOLUCIÓN AL PROBLEMA DE SEPARACIÓN PIXEL:
+        // En lugar de forzar `160 * scale`, respetamos el baseSpacing del JSON de la skin.
+        // Si hay una alteración dinámica (como el modo móvil que multiplica escala por 1.15), ajustamos la separación.
+        let spacing = baseSpacing;
+        if (scale !== baseScale && baseScale > 0) {
+            spacing = baseSpacing * (scale / baseScale);
+        }
+
         const strumHeight = 160 * scale;
 
         // Eje X

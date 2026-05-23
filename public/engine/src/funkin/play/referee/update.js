@@ -13,11 +13,14 @@ window.PlayRefereeUpdate = class PlayRefereeUpdate {
         if (referee.notesLogic && referee.notesLogic.update) referee.notesLogic.update(time, delta);
         if (referee.sustainLogic && referee.sustainLogic.update) referee.sustainLogic.update(time, delta);
 
+        // NUEVO: Ejecución del sistema Hold Covers
+        if (referee.holdCoverLogic && referee.holdCoverLogic.update) referee.holdCoverLogic.update(time, delta);
+
         // Actualización de los Pop-ups (Ratings y Combos)
         if (referee.ratingLogic && referee.ratingLogic.update) referee.ratingLogic.update(time, delta);
         if (referee.comboLogic && referee.comboLogic.update) referee.comboLogic.update(time, delta);
 
-        // NUEVO: Ejecución de actualización de barra de vida
+        // Ejecución de actualización de barra de vida
         if (referee.healthLogic && referee.healthLogic.update) referee.healthLogic.update(time, delta);
 
         // El bot siempre va después de las notas

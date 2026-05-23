@@ -3,12 +3,17 @@
 class StageXML {
     static getImgPath(folder, namePath) {
         const hasExt = /\.[a-zA-Z0-9]+$/.test(namePath);
-        return window.Path.stages + folder + '/' + (hasExt ? namePath : namePath + '.png');
+        const isCustomPath = namePath.includes('/');
+        const finalName = hasExt ? namePath : namePath + '.png';
+
+        return window.Path.stages + (isCustomPath ? finalName : folder + '/' + finalName);
     }
 
     static getXmlPath(folder, namePath) {
+        const isCustomPath = namePath.includes('/');
         const base = namePath.replace(/\.[a-zA-Z0-9]+$/, '');
-        return window.Path.stages + folder + '/' + base + '.xml';
+
+        return window.Path.stages + (isCustomPath ? base + '.xml' : folder + '/' + base + '.xml');
     }
 
     static preload(scene, folder, item) {
@@ -62,8 +67,6 @@ class StageXML {
             if (firstAnimKey) {
                 sprite.play(firstAnimKey);
                 if (item.animation.play_mode === 'Beat') {
-                    // Si es Beat, detenemos la animación al instante.
-                    // Esto asegura que se vea el frame 0 desde el inicio sin reproducirse sola.
                     sprite.anims.stop();
                 }
             }

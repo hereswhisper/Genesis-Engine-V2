@@ -14,10 +14,13 @@ class PlayReferee {
     this.stage = new window.Stage(this.scene);
     this.song = new window.Song(this.scene);
 
-    // 3. Interfaz y Jugabilidad (Strumlines -> Notas -> Bot)
+    // 3. Interfaz y Jugabilidad (Strumlines -> Notas -> HoldCovers -> Bot)
     this.strumlines = new window.StrumlineLogic(this.scene);
     this.notesLogic = new window.NoteLogic(this.scene);
     this.sustainLogic = new window.SustainLogic(this.scene);
+
+    this.holdCoverLogic = new window.HoldCoverLogic(this.scene); // NUEVO: Instancia del sistema Hold Covers
+
     this.splash = new window.NoteSplashLogic(this.scene);
     this.splashLogic = new window.NoteSplashLogic(this.scene);
     this.bot = new window.BotLogic(this.scene);
@@ -27,7 +30,6 @@ class PlayReferee {
     this.ratingLogic = new window.RatingLogic(this.scene || this);
     this.comboLogic = new window.ComboLogic(this.scene || this);
 
-    // NUEVO: Instanciar lógica y control de vida
     this.healthLogic = new window.HealthLogic(this.scene || this);
   }
 }

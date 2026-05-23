@@ -12,6 +12,7 @@
   "src/core/phaser/HUD.js",
 
   // utils
+  "src/utils/DebugMonitor.js",
   "src/utils/network/network.js",
   "src/utils/Preferences.js",
   "src/utils/Conductor.js",
@@ -50,6 +51,7 @@
   "src/funkin/play/stage/images.js",
   "src/funkin/play/stage/xml.js",
   "src/funkin/play/stage/props.js",
+  "src/funkin/play/stage/bg.js",
 
   "src/funkin/play/UI/arrows/directions.js",
   "src/funkin/play/UI/arrows/strumlines/positions.js",
@@ -61,6 +63,9 @@
 
   "src/funkin/play/UI/arrows/sustains/logic.js",
   "src/funkin/play/UI/arrows/sustains/renderer.js",
+
+  "src/funkin/play/UI/arrows/hold/logic.js",
+  "src/funkin/play/UI/arrows/hold/renderer.js",
 
   "src/funkin/play/UI/arrows/splash/logic.js",
   "src/funkin/play/UI/arrows/splash/renderer.js",

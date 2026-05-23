@@ -10,6 +10,10 @@ class NoteSplash extends Phaser.GameObjects.Sprite {
     this.setDepth(200);
     this.scene.add.existing(this);
 
+    this.strumTarget = null;
+    this.splashOffsetX = 0;
+    this.splashOffsetY = 0;
+
     if (this.scene.referee.cameras) {
       this.scene.referee.cameras.add(this, "ui");
     }
@@ -31,7 +35,6 @@ class NoteSplash extends Phaser.GameObjects.Sprite {
     this.setActive(true);
     this.setVisible(true);
 
-    // Heredar el noteAlpha para evitar splashes fantasma si las notas están ocultas
     const jsonAlpha = skinData.alpha !== undefined ? skinData.alpha : 1;
     const targetAlpha = strumTarget.noteAlpha !== undefined ? strumTarget.noteAlpha : jsonAlpha;
     this.setAlpha(targetAlpha);
@@ -59,16 +62,32 @@ class NoteSplash extends Phaser.GameObjects.Sprite {
 
     this.play(animToPlay);
 
-    const visualWidth = this.width * this.scaleX;
-    const visualHeight = this.height * this.scaleY;
+    this.strumTarget = strumTarget;
+    this.splashOffsetX = (skinData.Offset ? skinData.Offset[0] : 0) * amplificationRatio;
+    this.splashOffsetY = (skinData.Offset ? skinData.Offset[1] : 0) * amplificationRatio;
+  }
 
-    const offX = (skinData.Offset ? skinData.Offset[0] : 0) * amplificationRatio;
-    const offY = (skinData.Offset ? skinData.Offset[1] : 0) * amplificationRatio;
+  preUpdate(time, delta) {
+    super.preUpdate(time, delta);
 
-    this.setPosition(
-        strumTarget.x - visualWidth / 2 + offX,
-        strumTarget.y - visualHeight / 2 + offY
-    );
+    if (this.active && this.visible && this.strumTarget) {
+      this.setRotation(this.strumTarget.rotation);
+
+      const visualWidth = this.width * this.scaleX;
+      const visualHeight = this.height * this.scaleY;
+
+      // Restamos el offset de animación para que se centre en el verdadero punto original del strum
+      const animOffX = this.strumTarget.animOffsetX || 0;
+      const animOffY = this.strumTarget.animOffsetY || 0;
+
+      const trueStrumX = this.strumTarget.x - animOffX;
+      const trueStrumY = this.strumTarget.y - animOffY;
+
+      this.setPosition(
+        trueStrumX - visualWidth / 2 + this.splashOffsetX,
+        trueStrumY - visualHeight / 2 + this.splashOffsetY
+      );
+    }
   }
 }
 

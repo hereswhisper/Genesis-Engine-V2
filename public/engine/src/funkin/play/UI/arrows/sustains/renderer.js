@@ -21,19 +21,23 @@ class SustainTrail {
     this.isCompleted = false;
     this.isOut = false;
 
+    // SOLUCIÓN: Preservar y respetar la escala del JSON multiplicándola por el ratio de amplificación
     const jsonScale = Number(this.skinData.scale !== undefined ? this.skinData.scale : 0.6);
-    this.scaleVal = this.strumTarget.scaleX !== undefined ? this.strumTarget.scaleX : jsonScale;
+    const baseStrumScale = skins.get("gameplay.strumline.scale") || 0.7;
+    const strumScale = this.strumTarget.scaleX !== undefined ? this.strumTarget.scaleX : baseStrumScale;
+    const amplificationRatio = strumScale / baseStrumScale;
 
-    // Hereda su propio noteAlpha limpio de posiciones
+    this.scaleVal = jsonScale * amplificationRatio;
+
     const jsonAlpha = Number(this.skinData.alpha !== undefined ? this.skinData.alpha : 1.0);
     this.alphaVal = this.strumTarget.noteAlpha !== undefined ? this.strumTarget.noteAlpha : jsonAlpha;
 
+    // Se calcula usando jsonScale local para evitar separaciones extremas en offsets
     const ratio = this.scaleVal / jsonScale;
     this.offsetX = this.skinData.Offset ? Number(this.skinData.Offset[0] || 0) * ratio : 0;
     this.offsetY = this.skinData.Offset ? Number(this.skinData.Offset[1] || 0) * ratio : 0;
 
     const strumSkinData = skins.get("gameplay.strumline");
-    const strumScale = strumSkinData.scale !== undefined ? strumSkinData.scale : 0.7;
     const staticPrefix = strumSkinData.animations[this.direction].static;
     const strumAtlasKey = skins.getKey("gameplay.strumline.path") + "_XML";
     const strumTexture = scene.textures.get(strumAtlasKey);
@@ -105,8 +109,15 @@ class SustainTrail {
     const strumDownscroll = this.strumTarget.downscroll;
     const dirMult = strumDownscroll ? -1 : 1;
 
-    const targetX = this.fixedTargetX;
-    const targetY = this.fixedTargetY;
+    const animOffX = this.strumTarget.animOffsetX || 0;
+    const animOffY = this.strumTarget.animOffsetY || 0;
+
+    const deltaX = (this.strumTarget.x - animOffX) - this.strumTarget.baseX;
+    const deltaY = (this.strumTarget.y - animOffY) - this.strumTarget.baseY;
+    const rot = this.strumTarget.rotation;
+
+    const targetX = this.fixedTargetX + deltaX;
+    const targetY = this.fixedTargetY + deltaY;
 
     let currentLengthMs = this.fullSustainLength;
     if (this.wasGoodHit && !this.missedNote) {
@@ -133,7 +144,6 @@ class SustainTrail {
       noteY = targetY;
     }
 
-    // Usamos puramente la opacidad calculada para optimizar visibilidad
     const isHidden = this.alphaVal <= 0;
 
     if (visualHeight <= 0 || isHidden) {
@@ -141,8 +151,11 @@ class SustainTrail {
 
       if (isHidden && this.endSprite) {
           this.endSprite.setVisible(false);
-          let endPos = noteY + (visualHeight * dirMult);
-          this.endSprite.setPosition(Math.round(targetX), Math.round(endPos));
+          let endPosDist = noteY + (visualHeight * dirMult) - targetY;
+          this.endSprite.setPosition(
+              targetX - (endPosDist * Math.sin(rot)),
+              targetY + (endPosDist * Math.cos(rot))
+          );
           if (!strumDownscroll && this.endSprite.y < -300) this.isOut = true;
           else if (strumDownscroll && this.endSprite.y > this.scene.scale.height + 300) this.isOut = true;
       }
@@ -160,7 +173,6 @@ class SustainTrail {
         this.bodyPieces.push(sp);
       }
 
-      const exactTargetX = Math.round(targetX);
       const exactPieceH = visualHeight / numPieces;
       let curY = noteY;
 
@@ -172,22 +184,51 @@ class SustainTrail {
           sp.setAlpha(this.alphaVal);
           sp.setFlipY(strumDownscroll);
 
-          let startY = Math.floor(curY);
-          let nextY = Math.floor(curY + (exactPieceH * dirMult)) + (strumDownscroll ? -1 : 1);
+          let startY = curY;
+          let nextY = curY + (exactPieceH * dirMult) + (strumDownscroll ? -1 : 1);
           let endVisualY = noteY + (visualHeight * dirMult);
+          let fW = sp.frame ? sp.frame.width : sp.width;
 
           if (!strumDownscroll) {
-            if (nextY > Math.ceil(endVisualY)) nextY = Math.ceil(endVisualY);
+            if (nextY > endVisualY) nextY = endVisualY;
             let integerHeight = nextY - startY;
             sp.setOrigin(0.5, 0);
-            sp.setPosition(exactTargetX, startY);
+
+            const dist = startY - targetY;
+            sp.setPosition(targetX - (dist * Math.sin(rot)), targetY + (dist * Math.cos(rot)));
+            sp.setRotation(rot);
             sp.setScale(this.scaleVal, Math.max(0, integerHeight) / this.bodyFrameHeight);
+
+            if (nextY <= targetY) {
+                sp.setVisible(false);
+            } else if (startY >= targetY) {
+                sp.setCrop();
+            } else {
+                let hiddenRatio = (targetY - startY) / (nextY - startY);
+                let cropTop = this.bodyFrameHeight * hiddenRatio;
+                sp.setCrop(0, cropTop, fW, this.bodyFrameHeight - cropTop);
+            }
+
           } else {
-            if (nextY < Math.floor(endVisualY)) nextY = Math.floor(endVisualY);
+            if (nextY < endVisualY) nextY = endVisualY;
             let integerHeight = startY - nextY;
             sp.setOrigin(0.5, 1);
-            sp.setPosition(exactTargetX, startY);
+
+            const dist = startY - targetY;
+            sp.setPosition(targetX - (dist * Math.sin(rot)), targetY + (dist * Math.cos(rot)));
+            sp.setRotation(rot);
             sp.setScale(this.scaleVal, Math.max(0, integerHeight) / this.bodyFrameHeight);
+
+            if (nextY >= targetY) {
+                sp.setVisible(false);
+            } else if (startY <= targetY) {
+                sp.setCrop();
+            } else {
+                let hiddenRatio = (startY - targetY) / (startY - nextY);
+                let visibleRatio = 1.0 - hiddenRatio;
+                let cropHeight = this.bodyFrameHeight * visibleRatio;
+                sp.setCrop(0, 0, fW, cropHeight);
+            }
           }
 
           curY += (exactPieceH * dirMult);
@@ -200,14 +241,50 @@ class SustainTrail {
     if (this.endSprite) {
       this.endSprite.setVisible(true);
       this.endSprite.setFlipY(strumDownscroll);
-      let endPos = noteY + (visualHeight * dirMult);
-      this.endSprite.setPosition(Math.round(targetX), Math.round(endPos));
+
+      let endPosDist = noteY + (visualHeight * dirMult) - targetY;
+      this.endSprite.setPosition(
+          targetX - (endPosDist * Math.sin(rot)),
+          targetY + (endPosDist * Math.cos(rot))
+      );
+      this.endSprite.setRotation(rot);
+
+      let capH = this.endSprite.height * this.scaleVal;
+      if (capH <= 0) capH = 1;
+      let fW = this.endSprite.frame ? this.endSprite.frame.width : this.endSprite.width;
 
       if (!strumDownscroll) {
         this.endSprite.setOrigin(0.5, 0);
+        let endPos = noteY + visualHeight;
+        let endPosBottom = endPos + capH;
+
+        if (endPosBottom <= targetY) {
+            this.endSprite.setVisible(false);
+        } else if (endPos >= targetY) {
+            this.endSprite.setCrop();
+        } else {
+            let hiddenRatio = (targetY - endPos) / capH;
+            let cropTop = this.endSprite.height * hiddenRatio;
+            this.endSprite.setCrop(0, cropTop, fW, this.endSprite.height - cropTop);
+        }
+
         if (this.endSprite.y < -300) this.isOut = true;
       } else {
         this.endSprite.setOrigin(0.5, 1);
+        let endPos = noteY - visualHeight;
+        let endPosTop = endPos - capH;
+
+        if (endPosTop >= targetY) {
+            this.endSprite.setVisible(false);
+        } else if (endPos <= targetY) {
+            this.endSprite.setCrop();
+        } else {
+            let hiddenRatio = (endPos - targetY) / capH;
+            let visibleRatio = 1.0 - hiddenRatio;
+            let cropHeight = this.endSprite.height * visibleRatio;
+            this.endSprite.setCrop(0, 0, fW, cropHeight);
+        }
+
         if (this.endSprite.y > this.scene.scale.height + 300) this.isOut = true;
       }
     }

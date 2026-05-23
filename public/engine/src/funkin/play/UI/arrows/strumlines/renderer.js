@@ -33,6 +33,10 @@ class Strum extends Phaser.GameObjects.Sprite {
         this.baseX = x - (this.width * scaleVal) / 2;
         this.baseY = y - (this.height * scaleVal) / 2;
 
+        // Variables para aislar el desplazamiento visual de la animación
+        this.animOffsetX = 0;
+        this.animOffsetY = 0;
+
         this.isHeld = false;
         this.currentState = 'static';
         this.playAnim('static');
@@ -48,7 +52,6 @@ class Strum extends Phaser.GameObjects.Sprite {
         this.playAnim(this.currentState || 'static');
 
         if (this.hitbox) {
-            // Ancho actualizado a 1.65
             const actualWidth = 160 * newScale * 1.65;
             this.hitbox.setSize(actualWidth, this.hitbox.height);
             this.hitbox.setX(this.targetX - (actualWidth / 2) + 35);
@@ -57,13 +60,9 @@ class Strum extends Phaser.GameObjects.Sprite {
 
     createMobileHitbox(isVisible) {
         const height = this.scene.scale.height;
-
-        // Ancho actualizado a 1.65
         const actualWidth = 160 * this.scaleX * 1.65;
-
         const hitboxHeight = height / 2;
         const hitboxY = height / 2;
-
         const hitboxX = this.targetX - (actualWidth / 2) + 35;
 
         const colors = [0xc24b99, 0x00ffff, 0x12fa05, 0xf9393f];
@@ -76,7 +75,6 @@ class Strum extends Phaser.GameObjects.Sprite {
 
         this.hitbox.setFillStyle(color, 1);
         this.hitbox.setAlpha(isVisible ? 0.35 : 0);
-
         this.hitbox.setInteractive();
 
         if (this.scene.input) {
@@ -160,12 +158,15 @@ class Strum extends Phaser.GameObjects.Sprite {
         const ratio = this.scaleX / jsonScale;
         let offset = this.skinData.offsets[state] || [0, 0];
 
-        this.setPosition(this.baseX + (offset[0] * ratio), this.baseY + (offset[1] * ratio));
+        // Guardamos el offset de la animación para ignorarlo en las notas/sustains
+        this.animOffsetX = offset[0] * ratio;
+        this.animOffsetY = offset[1] * ratio;
+
+        this.setPosition(this.baseX + this.animOffsetX, this.baseY + this.animOffsetY);
     }
 
     update(time, delta) {}
 
-    // Función de limpieza segura para HMR
     cleanupHitboxInput() {
         if (this.hitbox && this.hitbox.input) {
             this.hitbox.disableInteractive();
@@ -173,7 +174,6 @@ class Strum extends Phaser.GameObjects.Sprite {
     }
 
     destroy(fromScene) {
-        // SOLUCIÓN: Comprobar que this.scene y this.scene.events existan antes de llamar a off()
         if (this.scene && this.scene.events) {
             this.scene.events.off('shutdown', this.cleanupHitboxInput, this);
         }
