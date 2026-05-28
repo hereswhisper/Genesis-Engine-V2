@@ -169,6 +169,5 @@ class IntroTextScene extends Phaser.Scene {
   }
 }
 
-DataSongs.loadWeeks();
 window.IntroTextScene = IntroTextScene;
 window.game.scene.add("IntroTextScene", window.IntroTextScene, true);

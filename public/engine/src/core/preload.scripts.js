@@ -15,7 +15,9 @@ async function loadScriptsOrderly() {
   try {
     const prefix = window.isReactNative ? "/engine/" : "";
     console.log(
-      `[Genesis Preloader] Buscando config en: ${prefix}src/core/preload.scripts.jsonc`,
+      `%c GENESIS PRELOADER %c Buscando config en: ${prefix}src/core/preload.scripts.jsonc`,
+      "background: #004d40; color: white;",
+      "color: unset;"
     );
 
     const response = await fetch(prefix + "src/core/preload.scripts.jsonc");
@@ -43,8 +45,12 @@ async function loadScriptsOrderly() {
 
     await bootEngine();
   } catch (error) {
-    // Concatenamos el error en un solo string
-    console.error("Falló la secuencia de carga -> " + (error.message || error));
+    console.error(
+      "%c GENESIS %c Falló la secuencia de carga -> " +
+        (error.message || error),
+      "background: #b71c1c; color: white;",
+      "color: unset;"
+    );
   }
 }
 
@@ -52,9 +58,25 @@ async function bootEngine() {
   // 1. CONDICIÓN CLAVE: Solo inicializamos Neutralino si NO estamos en React Native
   if (typeof Neutralino !== "undefined" && !window.isReactNative) {
     Neutralino.init();
-    console.log("[Genesis] Neutralino inicializado (Modo PC).");
+    console.log(
+      "%c GENESIS %c Neutralino inicializado (Modo PC).",
+      "background: #004d40; color: white;",
+      "color: unset;"
+    );
+
+    // Inicia el sistema de archivos y APLICA los Monkey Patches para mods
+    await FileSystem.init();
   } else if (window.isReactNative) {
-    console.log("[Genesis] Neutralino ignorado (Modo React Native).");
+    console.log(
+      "%c GENESIS %c Neutralino ignorado (Modo React Native).",
+      "background: #004d40; color: white;",
+      "color: unset;"
+    );
+  }
+
+  // 1.5 Cargar base de datos musical DESPUÉS del FileSystem, para que los mods se inyecten
+  if (window.DataSongs) {
+    await window.DataSongs.loadWeeks();
   }
 
   // 2. Parches de almacenamiento
@@ -72,10 +94,16 @@ async function bootEngine() {
     });
 
     console.log(
-      `[Genesis] Boot completado. ${queuedScenes.length} escenas inyectadas.`,
+      `%c GENESIS %c Boot completado. ${queuedScenes.length} escenas inyectadas.`,
+      "background: #004d40; color: white;",
+      "color: unset;"
     );
   } else {
-    console.error("[Genesis] Error Fatal: GenesisConfig no está definido.");
+    console.error(
+      "%c GENESIS %c Error Fatal: GenesisConfig no está definido.",
+      "background: #b71c1c; color: white;",
+      "color: unset;"
+    );
   }
 }
 

@@ -110,9 +110,11 @@ class Song {
 
         this.onNoteHitListener = this.onNoteHit.bind(this);
         this.onNoteMissListener = this.onNoteMiss.bind(this);
+        this.onGhostMissListener = this.onGhostMiss.bind(this); // Escuchador de Ghost Miss
 
         this.scene.events.on('noteHit', this.onNoteHitListener);
         this.scene.events.on('noteMiss', this.onNoteMissListener);
+        this.scene.events.on('ghostMiss', this.onGhostMissListener);
 
         this.scene.events.once('shutdown', this.shutdown, this);
     }
@@ -188,13 +190,10 @@ class Song {
         const isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
         const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
 
-        // INVERSIÓN: Determinamos de quién era la nota fallada
         const isMainPlayerMiss = playerEnemy ? isOpponent : isPlayer;
 
-        // Solo reproducimos fallo si falló el jugador principal, o si estamos en 2Players y falló el secundario
         if (isMainPlayerMiss || (isTwoPlayersActive && !isMainPlayerMiss)) {
-
-            // 1. Muteamos la voz de quien haya fallado
+            // 1. Muteamos la voz
             if (isPlayer) {
                 if (this.playerTrack && this.playerTrack.volume > 0) {
                     this.playerTrack.volume = 0;
@@ -207,18 +206,58 @@ class Song {
                 }
             }
 
-            // 2. Ejecutamos el sonido de MISS si no está silenciado explícitamente
-            if (!this.muteMiss) {
+            // 2. Evaluamos la preferencia correspondiente para el sonido
+            let isMutedByPreference = isMainPlayerMiss
+                ? (window.Preferences ? window.Preferences.muteMissNote : false)
+                : (window.Preferences ? window.Preferences.muteMissNoteEnemy : false);
+
+            if (!isMutedByPreference && !this.muteMiss) {
                 if (this.missSoundKeys.length > 0) {
                     const randomKey = this.missSoundKeys[Math.floor(Math.random() * this.missSoundKeys.length)];
-
                     if (this.scene.cache.audio.exists(randomKey)) {
                         this.scene.sound.play(randomKey, { volume: this.missVolume });
-                    } else {
-                        console.warn(`[Song] Audio miss no cargado en caché: ${randomKey}`);
                     }
-                } else {
-                    console.warn(`[Song] missSoundKeys está vacío, no se pudo reproducir nada.`);
+                }
+            }
+        }
+    }
+
+    onGhostMiss(data) {
+        if (!data) return;
+
+        let isPlayer = true;
+        let isOpponent = false;
+
+        // Soporte tanto para el nuevo formato por paquete, como para el antiguo de retrocompatibilidad
+        if (data.playerId) {
+            isPlayer = data.playerId === 'p1';
+            isOpponent = data.playerId === 'p2';
+        } else if (data.isOpponent !== undefined) {
+            isOpponent = data.isOpponent;
+            isPlayer = !isOpponent;
+        }
+
+        const isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
+        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+
+        const isMainPlayerMiss = playerEnemy ? isOpponent : isPlayer;
+
+        // Mismo filtro de dos jugadores / jugador principal
+        if (isMainPlayerMiss || (isTwoPlayersActive && !isMainPlayerMiss)) {
+
+            // Elegir preferencia dependiendo de quién provocó el fallo fantasma
+            let isMutedByPreference = isMainPlayerMiss
+                ? (window.Preferences ? window.Preferences.muteMissNote : false)
+                : (window.Preferences ? window.Preferences.muteMissNoteEnemy : false);
+
+            // A diferencia de NoteMiss normal, normalmente los fallos fantasma no mutean
+            // la pista de voz activa, solo reproducen el efecto de "bop" fallido.
+            if (!isMutedByPreference && !this.muteMiss) {
+                if (this.missSoundKeys.length > 0) {
+                    const randomKey = this.missSoundKeys[Math.floor(Math.random() * this.missSoundKeys.length)];
+                    if (this.scene.cache.audio.exists(randomKey)) {
+                        this.scene.sound.play(randomKey, { volume: this.missVolume });
+                    }
                 }
             }
         }
@@ -238,6 +277,7 @@ class Song {
 
         this.scene.events.off('noteHit', this.onNoteHitListener);
         this.scene.events.off('noteMiss', this.onNoteMissListener);
+        this.scene.events.off('ghostMiss', this.onGhostMissListener); // Quitar escuchador de Ghost Miss
 
         const tracks = [this.instTrack, this.playerTrack, this.opponentTrack];
         tracks.forEach(track => {

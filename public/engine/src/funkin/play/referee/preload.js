@@ -21,7 +21,12 @@ class PlayRefereePreload {
     if (window.HealthLogic && typeof window.HealthLogic.preload === 'function') {
         window.HealthLogic.preload(scene);
     } else {
-        console.warn("[PlayRefereePreload] HealthLogic no está definido. Revisa su importación.");
+        console.warn("[PlayRefereePreload] HealthLogic no está definido.");
+    }
+
+    // NUEVO: Precarga del Score
+    if (window.ScoreLogic && typeof window.ScoreLogic.preload === 'function') {
+        window.ScoreLogic.preload(scene);
     }
 
     const songName = scene.playData.get("song", "test");
@@ -58,7 +63,6 @@ class PlayRefereePreload {
       loadXML(data.gameplay?.sustains?.path);
       loadXML(data.gameplay?.noteSplashes?.path);
 
-      // SOLUCIÓN: Precargar los XML dinámicos de los HoldCovers
       const holdDirs = data.gameplay?.holdCovers?.directions;
       if (holdDirs) {
           Object.values(holdDirs).forEach(dir => {

@@ -2,9 +2,10 @@
 
 class PlayRefereeShutdown {
     static execute(referee) {
+        // Validamos que 'referee' exista correctamente
         if (!referee) return;
 
-        console.log("[Referee] Iniciando protocolo de apagado...");
+        console.log("%c REFEREE %c Iniciando protocolo de apagado...", 'background: #4a148c; color: white;', 'color: unset;');
 
         // 1. Detener Audio
         if (referee.song && typeof referee.song.shutdown === 'function') {
@@ -27,10 +28,13 @@ class PlayRefereeShutdown {
         if (referee.ratingLogic && typeof referee.ratingLogic.shutdown === 'function') referee.ratingLogic.shutdown();
         if (referee.comboLogic && typeof referee.comboLogic.shutdown === 'function') referee.comboLogic.shutdown();
 
-        // NUEVO: Protocolo de destrucción y remoción de eventos de vida
+        // Protocolo de destrucción y remoción de eventos de vida
         if (referee.healthLogic && typeof referee.healthLogic.shutdown === 'function') referee.healthLogic.shutdown();
 
-        console.log("[Referee] Escena limpiada correctamente.");
+        // Limpiar el Score y sus eventos globales de teclado
+        if (referee.scoreLogic && typeof referee.scoreLogic.shutdown === 'function') referee.scoreLogic.shutdown();
+
+        console.log("%c REFEREE %c Escena limpiada correctamente.", 'background: #4a148c; color: white;', 'color: unset;');
     }
 }
 

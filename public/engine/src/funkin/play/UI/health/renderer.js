@@ -11,8 +11,12 @@ class HealthRenderer {
 
         this.posPercent = [50, 89];
 
+        // Determinar la posición inicial según la preferencia de scroll
+        const isDownscroll = window.Preferences && window.Preferences.downscroll;
+        const currentYPercent = isDownscroll ? 11 : this.posPercent[1];
+
         const posX = this.scene.scale.width * (this.posPercent[0] / 100);
-        const posY = this.scene.scale.height * (this.posPercent[1] / 100);
+        const posY = this.scene.scale.height * (currentYPercent / 100);
 
         // 1. Gráficos dinámicos para el relleno de colores
         this.barFillGraphics = this.scene.add.graphics();
@@ -49,8 +53,12 @@ class HealthRenderer {
             this.barHeight = this.frameSprite.height;
         }
 
+        // AJUSTE DINÁMICO: Recalcular la posición Y por si cambia la preferencia en tiempo real
+        const isDownscroll = window.Preferences && window.Preferences.downscroll;
+        const currentYPercent = isDownscroll ? 11 : this.posPercent[1];
+
         const posX = this.scene.scale.width * (this.posPercent[0] / 100);
-        const posY = this.scene.scale.height * (this.posPercent[1] / 100);
+        const posY = this.scene.scale.height * (currentYPercent / 100);
 
         this.frameSprite.setPosition(posX, posY);
         this.barFillGraphics.clear();

@@ -14,7 +14,7 @@ class DataSongs {
             const textData = await response.text();
             this.weeksList = textData.split(/\r?\n/).map(l => l.trim()).filter(l => l !== "");
 
-            console.log("[Genesis] Cargando semanas...");
+            console.log("%c GENESIS %c Cargando semanas...", 'background: #1b5e20; color: white;', 'color: unset;');
 
             // 1. Cargar JSONs de las semanas
             await Promise.all(this.weeksList.map(async (week) => {
@@ -25,9 +25,9 @@ class DataSongs {
             // 2. Cargar Metadatos de todas las canciones encontradas en las semanas
             await this.loadAllSongsMeta();
 
-            console.log("[Genesis] Base de datos de música lista.");
+            console.log("%c GENESIS %c Base de datos de música lista.", 'background: #1b5e20; color: white;', 'color: unset;');
         } catch (error) {
-            console.error("[Genesis] Error en la inicialización de datos:", error);
+          console.error("%c GENESIS %c Error en la inicialización de datos:", 'background: #b71c1c; color: white;', 'color: unset;', error);
         }
     }
 
@@ -57,7 +57,7 @@ class DataSongs {
                     this.songsData[trackID] = await res.json();
                 }
             } catch (e) {
-                console.warn(`[Genesis] No se encontró meta.json para: ${trackID}`);
+              console.warn(`%c GENESIS %c No se encontró meta.json para: ${trackID}`, 'background: #e65100; color: white;', 'color: unset;');
             }
         }));
     }

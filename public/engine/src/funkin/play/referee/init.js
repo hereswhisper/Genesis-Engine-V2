@@ -19,7 +19,7 @@ class PlayReferee {
     this.notesLogic = new window.NoteLogic(this.scene);
     this.sustainLogic = new window.SustainLogic(this.scene);
 
-    this.holdCoverLogic = new window.HoldCoverLogic(this.scene); // NUEVO: Instancia del sistema Hold Covers
+    this.holdCoverLogic = new window.HoldCoverLogic(this.scene);
 
     this.splash = new window.NoteSplashLogic(this.scene);
     this.splashLogic = new window.NoteSplashLogic(this.scene);
@@ -31,6 +31,9 @@ class PlayReferee {
     this.comboLogic = new window.ComboLogic(this.scene || this);
 
     this.healthLogic = new window.HealthLogic(this.scene || this);
+
+    // NUEVO: Instancia del sistema de Puntuaciones
+    this.scoreLogic = new window.ScoreLogic(this.scene || this);
   }
 }
 

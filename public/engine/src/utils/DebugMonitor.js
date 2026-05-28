@@ -60,7 +60,7 @@ class DebugMonitor {
             requestAnimationFrame(() => DebugMonitor.init());
         });
 
-        console.log("DebugMonitor inyectado al HUD (HMR Safe).");
+        console.log(`%c DEBUG MONITOR %c Inyectado al HUD (HMR Safe).`, 'background: #00bcd4; color: white;', 'color: unset;');
     }
 
     static toggleMode() {

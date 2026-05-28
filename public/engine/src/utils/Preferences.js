@@ -3,92 +3,30 @@
  * @description Global class to manage and persist user preferences and settings across the game.
  */
 class Preferences {
-    /**
-     * @type {boolean}
-     * @description Allows the player to press inputs when no notes are present without penalizing their health.
-     */
     static ghostTapping = false;
-
-    /**
-     * @type {boolean}
-     * @description Reverses the note scroll direction from bottom-to-top (false) to top-to-bottom (true).
-     */
-    static downscroll = false;
-
-    /**
-     * @type {string}
-     * @description Configures the strumline layout on the screen.
-     * Options: 'none' (default), 'mini' (opponent minimized), or 'split' (P1 and P2 split on sides).
-     */
+    static downscroll = true;
     static middleScroll = 'none'; // none, mini & split
-
-    /**
-     * @type {boolean}
-     * @description Lets the AI automatically play the charts for the player.
-     */
-    static botplay = true ;
-
-    /**
-     * @type {boolean}
-     * @description Enables local multiplayer mode where two players can play together on the same device.
-     */
-    static twoPlayers = false ;
-
-    /**
-     * @type {boolean}
-     * @description Enables visual splash effects when hitting a 'Sick' rating.
-     */
+    static botplay = true;
+    static twoPlayers = false;
     static noteSplashes = true;
-
-    /**
-     * @type {boolean}
-     * @description Allows the opponent's strumline arrows to glow when they hit a note.
-     */
     static opponentGlow = true;
-
-    /**
-     * @type {boolean}
-     * @description Hides the opponent's strumline (receptors) completely.
-     */
     static hideOpStrums = false;
-
-    /**
-     * @type {boolean}
-     * @description Hides the opponent's incoming notes completely.
-     */
     static hideOpNotes = false;
-
-    /**
-     * @type {boolean}
-     * @description Swaps the player's side with the opponent's side (Player acts as the enemy).
-     */
     static playerEnemy = false;
-
-    /**
-     * @type {string}
-     * @description Defines how the pop-up ratings (Sick, Good, etc.) animate when they appear.
-     * Options: 'default' (jumps and falls) or 'stackeable' (interrupts and destroys previous pop-up).
-     */
     static popUpAnim = 'default'; // default & stackeable
-
-    /**
-     * @type {number[]}
-     * @description Array representing the relative screen position for the pop-ups as percentages [X%, Y%].
-     * For example, [50, 42] means 50% width (horizontal center) and 42% height (slightly above vertical center).
-     */
     static popUpPos = [50, 42];
-
-    /**
-     * @type {boolean}
-     * @description Shows or hides the opponent's rating and combo pop-ups in two-player mode.
-     */
     static showOpPopUp = true;
 
+    // NUEVAS PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
+    static muteMissNote = false;
+    static muteMissNoteEnemy = false;
+
     /**
-     * @method init
-     * @description Initializes preferences by loading them from localStorage.
-     * Uses default values if they do not exist.
+     * @type {string[]}
+     * @description Define el orden y los elementos que se muestran en el texto del score.
      */
+    static scoreFormat = ['score', 'rating', 'accuracy', 'misses', 'combo', 'maxCombo', 'cps'];
+
     static init() {
         const getBool = (key, defaultVal) => {
             const val = localStorage.getItem(key);
@@ -109,30 +47,29 @@ class Preferences {
             }
         };
 
-        // Loading basic mechanics
         this.ghostTapping = getBool('genesis_ghost_tapping', this.ghostTapping);
         this.downscroll = getBool('genesis_downscroll', this.downscroll);
         this.middleScroll = getString('genesis_middle_scroll', this.middleScroll);
         this.botplay = getBool('genesis_botplay', this.botplay);
         this.twoPlayers = getBool('genesis_2players', this.twoPlayers);
 
-        // Loading UI preferences
         this.noteSplashes = getBool('genesis_note_splashes', this.noteSplashes);
         this.opponentGlow = getBool('genesis_opponent_glow', this.opponentGlow);
         this.hideOpStrums = getBool('genesis_hide_op_strums', this.hideOpStrums);
         this.hideOpNotes = getBool('genesis_hide_op_notes', this.hideOpNotes);
         this.playerEnemy = getBool('genesis_player_enemy', this.playerEnemy);
 
-        // Loading rating pop-up settings
         this.popUpAnim = getString('genesis_popup_anim', this.popUpAnim);
         this.popUpPos = getArray('genesis_popup_pos', this.popUpPos);
         this.showOpPopUp = getBool('genesis_show_op_popup', this.showOpPopUp);
+
+        // Cargar las nuevas preferencias de sonido
+        this.muteMissNote = getBool('genesis_mute_miss_note', this.muteMissNote);
+        this.muteMissNoteEnemy = getBool('genesis_mute_miss_note_enemy', this.muteMissNoteEnemy);
+
+        this.scoreFormat = getArray('genesis_score_format', this.scoreFormat);
     }
 
-    /**
-     * @method save
-     * @description Saves the current state of static variables to localStorage.
-     */
     static save() {
         localStorage.setItem('genesis_ghost_tapping', this.ghostTapping);
         localStorage.setItem('genesis_downscroll', this.downscroll);
@@ -149,9 +86,14 @@ class Preferences {
         localStorage.setItem('genesis_popup_anim', this.popUpAnim);
         localStorage.setItem('genesis_popup_pos', JSON.stringify(this.popUpPos));
         localStorage.setItem('genesis_show_op_popup', this.showOpPopUp);
+
+        // Guardar las nuevas preferencias de sonido
+        localStorage.setItem('genesis_mute_miss_note', this.muteMissNote);
+        localStorage.setItem('genesis_mute_miss_note_enemy', this.muteMissNoteEnemy);
+
+        localStorage.setItem('genesis_score_format', JSON.stringify(this.scoreFormat));
     }
 }
 
-// Lo exponemos globalmente y lo autoinicializamos
 window.Preferences = Preferences;
 window.Preferences.init();

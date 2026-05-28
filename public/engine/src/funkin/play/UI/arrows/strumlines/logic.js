@@ -24,7 +24,6 @@ class StrumlineLogic {
     this.mobileStrums = window.isMobile || window.isReactNative || false;
     this.visibleHitboxes = true;
 
-    // AHORA USA HEALTH (Reinicia al montar)
     if (window.Health) window.Health.resetHealth();
 
     this.createStrumlines();
@@ -239,17 +238,35 @@ class StrumlineLogic {
     const rating = window.Judgment.getRating(diff);
     const score = window.Judgment.calculateScore(diff);
 
-    // AHORA USA HEALTH directamente sobre el módulo (Soporte Multi Jugador / Player Enemy nativo)
     if (window.Health) {
         window.Health.applyHit(rating, isOpponent);
         window.Health.checkGameOver(this.scene);
     }
 
-    this.scene.events.emit("noteHit", { note, rating, score, health: window.Health ? window.Health.currentHealth : 1.0 });
+    // SOLUCIÓN APLICADA AQUÍ: Combinamos compatibilidad antigua con el nuevo sistema de Score
+    const packet = {
+        // --- VARIABLES DE RETRO-COMPATIBILIDAD PARA AUDIO Y SPLASHES ---
+        note: note,
+        rating: rating,
+        score: score,
+        health: window.Health ? window.Health.currentHealth : 1.0,
+
+        // --- VARIABLES NUEVAS PARA MULTIJUGADOR Y SCORE LOGIC ---
+        playerId: isOpponent ? "p2" : "p1",
+        action: "hit",
+        timestamp: performance.now(),
+        songTime: window.Conductor.songPosition,
+        direction: strum.direction,
+        difference: diff,
+        scoreAdded: score,
+        noteData: note.noteData
+    };
+
+    // Emitimos el paquete completo
+    this.scene.events.emit("noteHit", packet);
 
     const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
     const isMainPlayer = playerEnemy ? isOpponent : !isOpponent;
-
     const isAI = !isMainPlayer;
     const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
 
@@ -267,13 +284,27 @@ class StrumlineLogic {
   processGhostMiss(strum, isOpponent) {
     strum.playAnim("press");
 
-    // AHORA USA HEALTH (Soporte Multi Jugador)
     if (window.Health) {
         window.Health.applyGhostMiss(isOpponent);
         window.Health.checkGameOver(this.scene);
     }
 
-    this.scene.events.emit("ghostMiss", { direction: strum.direction, isOpponent, health: window.Health ? window.Health.currentHealth : 1.0 });
+    // SOLUCIÓN APLICADA AQUÍ TAMBIÉN
+    const packet = {
+        // --- RETRO-COMPATIBILIDAD ---
+        direction: strum.direction,
+        isOpponent: isOpponent,
+        health: window.Health ? window.Health.currentHealth : 1.0,
+
+        // --- NUEVOS DATOS ---
+        playerId: isOpponent ? "p2" : "p1",
+        action: "ghostMiss",
+        timestamp: performance.now(),
+        songTime: window.Conductor.songPosition,
+        isGhost: true
+    };
+
+    this.scene.events.emit("ghostMiss", packet);
   }
 
   update(time, delta) {

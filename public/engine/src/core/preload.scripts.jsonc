@@ -4,6 +4,8 @@
 
   // native
   "src/core/native/pc/neutralino.js",
+  "src/utils/fileSystem/FileSystem.js",
+  "src/utils/fileSystem/providers/NeutralinoFS.js",
   "src/utils/Storage.js",
 
   // core
@@ -82,6 +84,9 @@
   "src/funkin/play/UI/health/renderer.js",
 
   "src/funkin/play/Judgment.js",
+
+  "src/funkin/play/UI/score/logic.js",
+  "src/funkin/play/UI/score/renderer.js",
 
   // intro
   "src/funkin/menu/intro/text.js",

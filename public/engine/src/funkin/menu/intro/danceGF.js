@@ -37,24 +37,52 @@ class IntroDanceScene extends Phaser.Scene {
   }
 
   create() {
+    // 1. Blindar creación de animaciones
     this.createAnimations();
 
-    this.music = this.sound.getAllPlaying().find((s) => ["introMusic", "freakyMenu"].includes(s.key)) || this.sound.add("freakyMenu", { loop: true });
-    if (!this.music.isPlaying) this.music.play();
+    // 2. Blindar música base
+    try {
+      this.music = this.sound.getAllPlaying().find((s) => ["introMusic", "freakyMenu"].includes(s.key));
+      if (!this.music && this.cache.audio.exists("freakyMenu")) {
+        this.music = this.sound.add("freakyMenu", { loop: true });
+      }
+      if (this.music && !this.music.isPlaying) this.music.play();
+    } catch(e) {
+      console.warn("Fallo al reproducir música del menú:", e);
+    }
 
     this.cameras.main.flash(1000, 255, 255, 255);
 
     const { width: w, height: h } = this.scale;
 
+    // 3. Creador de sprites con tolerancia a fallos
     const makeSp = (key, anim, xPct, yPct) => {
-      let s = this.add.sprite(0, 0, key).play(anim).setOrigin(0, 0);
-      return s.setPosition(w * xPct - s.displayWidth / 2, h * yPct - s.displayHeight / 2);
+      let s;
+      if (this.textures.exists(key)) {
+        s = this.add.sprite(0, 0, key);
+        if (this.anims.exists(anim)) {
+            s.play(anim);
+        }
+      } else {
+        console.warn(`[IntroDance] Textura crítica ausente: ${key}. Generando dummy para evitar crash.`);
+        s = this.add.sprite(0, 0, '__DEFAULT'); // Textura verde por defecto
+        s.play = function() { return this; }; // Sobreescritura dummy
+      }
+      return s.setOrigin(0, 0).setPosition(w * xPct - s.displayWidth / 2, h * yPct - s.displayHeight / 2);
     };
 
     this.logo = makeSp("logoBumpin", "logoBump", 0.24, 0.35);
     this.gf = makeSp("gfDanceTitle", "gfDanceRight", 0.7, 0.5);
 
-    this.titleText = this.add.sprite(0, 0, "titleText").play("titleIdle").setOrigin(0, 0);
+    // Validar Textos
+    if (this.textures.exists("titleText")) {
+        this.titleText = this.add.sprite(0, 0, "titleText");
+        if (this.anims.exists("titleIdle")) this.titleText.play("titleIdle");
+    } else {
+        this.titleText = this.add.sprite(0, 0, "__DEFAULT");
+        this.titleText.play = function() { return this; };
+    }
+    this.titleText.setOrigin(0, 0);
 
     this.updateTitlePos = () => {
       if (this.titleText && this.titleText.active) {
@@ -64,15 +92,17 @@ class IntroDanceScene extends Phaser.Scene {
         );
       }
     };
+
     this.updateTitlePos();
-    this.titleText.on("animationupdate", this.updateTitlePos);
+    if (this.textures.exists("titleText")) {
+        this.titleText.on("animationupdate", this.updateTitlePos);
+    }
 
     Conductor.events.on("beatHit", this.onBeatHit, this);
 
     this.inputListener = (e) => this.handleInput(e);
     window.addEventListener("keydown", this.inputListener);
 
-    // SOPORTE TÁCTIL (Tap en cualquier parte de la pantalla)
     if (window.isMobile || window.isReactNative) {
         this.input.on('pointerdown', () => {
             if (this.transitioning) {
@@ -91,8 +121,8 @@ class IntroDanceScene extends Phaser.Scene {
 
     if (this.cheatActive) {
       this.hueAngle = (this.hueAngle + delta * 0.1) % 360;
-      this.gfColorMatrix?.hue(this.hueAngle);
-      this.logoColorMatrix?.hue(this.hueAngle);
+      if (this.gfColorMatrix) this.gfColorMatrix.hue(this.hueAngle);
+      if (this.logoColorMatrix) this.logoColorMatrix.hue(this.hueAngle);
     }
 
     if (this.infinityActive && typeof Neutralino !== "undefined") {
@@ -110,32 +140,49 @@ class IntroDanceScene extends Phaser.Scene {
 
   onBeatHit() {
     if (!this.logo || !this.logo.active) return;
-    this.logo.play("logoBump", true);
-    this.gf.play((this.danceLeft = !this.danceLeft) ? "gfDanceLeft" : "gfDanceRight", true);
+
+    if (this.anims.exists("logoBump")) this.logo.play("logoBump", true);
+
+    this.danceLeft = !this.danceLeft;
+    const nextAnim = this.danceLeft ? "gfDanceLeft" : "gfDanceRight";
+    if (this.anims.exists(nextAnim)) {
+        this.gf.play(nextAnim, true);
+    }
   }
 
   createAnimations() {
-    const getFrames = (k, p) => this.textures.get(k).getFrameNames().filter((f) => f.startsWith(p)).sort().map((f) => ({ key: k, frame: f }));
+    const getFrames = (k, p) => {
+        if (!this.textures.exists(k)) return false;
+        return this.textures.get(k).getFrameNames().filter((f) => f.startsWith(p)).sort().map((f) => ({ key: k, frame: f }));
+    };
 
-    if (!this.anims.exists("logoBump")) {
-      this.anims.create({ key: "logoBump", frames: getFrames("logoBumpin", "logo bumpin"), frameRate: 24 });
-    }
-    if (!this.anims.exists("titleIdle")) {
-      this.anims.create({ key: "titleIdle", frames: getFrames("titleText", "Press Enter to Begin"), frameRate: 24, repeat: -1 });
-    }
-    if (!this.anims.exists("titlePress")) {
-      this.anims.create({ key: "titlePress", frames: getFrames("titleText", "ENTER PRESSED"), frameRate: 24 });
+    let framesLogo = getFrames("logoBumpin", "logo bumpin");
+    if (framesLogo && framesLogo.length > 0 && !this.anims.exists("logoBump")) {
+      this.anims.create({ key: "logoBump", frames: framesLogo, frameRate: 24 });
     }
 
-    if (!this.anims.exists("gfDanceLeft") || !this.anims.exists("gfDanceRight")) {
+    let framesTitle = getFrames("titleText", "Press Enter to Begin");
+    if (framesTitle && framesTitle.length > 0 && !this.anims.exists("titleIdle")) {
+      this.anims.create({ key: "titleIdle", frames: framesTitle, frameRate: 24, repeat: -1 });
+    }
+
+    let framesTitlePress = getFrames("titleText", "ENTER PRESSED");
+    if (framesTitlePress && framesTitlePress.length > 0 && !this.anims.exists("titlePress")) {
+      this.anims.create({ key: "titlePress", frames: framesTitlePress, frameRate: 24 });
+    }
+
+    if (this.textures.exists("gfDanceTitle")) {
       const texGf = this.textures.get("gfDanceTitle").getFrameNames().filter((f) => f.startsWith("gfDance")).sort();
-      const mapIdx = (idxs) => idxs.map((i) => ({ key: "gfDanceTitle", frame: texGf[i] || texGf[0] }));
 
-      if (!this.anims.exists("gfDanceLeft")) {
-        this.anims.create({ key: "gfDanceLeft", frames: mapIdx([30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]), frameRate: 24 });
-      }
-      if (!this.anims.exists("gfDanceRight")) {
-        this.anims.create({ key: "gfDanceRight", frames: mapIdx([15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]), frameRate: 24 });
+      if (texGf.length > 0) {
+        const mapIdx = (idxs) => idxs.map((i) => ({ key: "gfDanceTitle", frame: texGf[i] || texGf[0] }));
+
+        if (!this.anims.exists("gfDanceLeft")) {
+          this.anims.create({ key: "gfDanceLeft", frames: mapIdx([30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]), frameRate: 24 });
+        }
+        if (!this.anims.exists("gfDanceRight")) {
+          this.anims.create({ key: "gfDanceRight", frames: mapIdx([15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]), frameRate: 24 });
+        }
       }
     }
   }
@@ -190,16 +237,27 @@ class IntroDanceScene extends Phaser.Scene {
   activateSecret() {
     this.cheatActive = true;
     this.cameras.main.flash(1000, 255, 255, 255);
-    this.sound.play("confirmMenu");
 
-    this.gfColorMatrix = this.gf.postFX?.addColorMatrix();
-    this.logoColorMatrix = this.logo.postFX?.addColorMatrix();
-    if (this.gf.anims) this.gf.anims.timeScale = 1.5;
+    if (this.cache.audio.exists("confirmMenu")) {
+        this.sound.play("confirmMenu");
+    }
+
+    if (this.gf && this.gf.postFX) this.gfColorMatrix = this.gf.postFX.addColorMatrix();
+    if (this.logo && this.logo.postFX) this.logoColorMatrix = this.logo.postFX.addColorMatrix();
+
+    // Solo cambiar scale si existe currentAnim (es un dummy o anim real)
+    if (this.gf && this.gf.anims && this.gf.anims.currentAnim) {
+        this.gf.anims.timeScale = 1.5;
+    }
 
     this.sound.stopAll();
-    this.music = this.sound.add("girlfriendsRingtone", { loop: true, volume: 0 });
-    this.music.play();
-    this.tweens.add({ targets: this.music, volume: 1.0, duration: 4000 });
+
+    if (this.cache.audio.exists("girlfriendsRingtone")) {
+        this.music = this.sound.add("girlfriendsRingtone", { loop: true, volume: 0 });
+        this.music.play();
+        this.tweens.add({ targets: this.music, volume: 1.0, duration: 4000 });
+    }
+
     Conductor.mapTimeChanges([new SongTimeChange(0, 160, 4, 4)]);
   }
 
@@ -207,9 +265,14 @@ class IntroDanceScene extends Phaser.Scene {
     if (this.transitioning) return;
     this.transitioning = true;
 
-    this.titleText.play("titlePress");
+    if (this.anims.exists("titlePress")) {
+        this.titleText.play("titlePress");
+    }
     this.cameras.main.flash(900, 255, 255, 255);
-    this.sound.play("confirmMenu");
+
+    if (this.cache.audio.exists("confirmMenu")) {
+        this.sound.play("confirmMenu");
+    }
 
     if (this.cheatActive && this.music) {
       this.tweens.add({ targets: this.music, volume: 0, duration: 2500 });
