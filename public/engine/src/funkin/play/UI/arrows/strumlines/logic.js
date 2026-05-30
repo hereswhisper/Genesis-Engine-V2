@@ -61,23 +61,88 @@ class StrumlineLogic {
         }
     }
 
+    // LÓGICA CORREGIDA:
+    // Por defecto, cada quien en su lado.
     let posIsPlayerForOpp = false;
     let posIsPlayerForPly = true;
 
+    // SOLO si hay un modo de middlescroll activo Y playerEnemy es true,
+    // le damos al enemigo la posición central (PlayerForOpp = true).
     if (playerEnemy && this.middleScroll !== 'none') {
         posIsPlayerForOpp = true;
         posIsPlayerForPly = false;
     }
 
+    // --- CONFIGURACIÓN DE FONDOS ---
+    const bgOpacity = window.Preferences && window.Preferences.strumBackgroundOpacity !== undefined
+        ? window.Preferences.strumBackgroundOpacity
+        : 0;
+    const screenHeight = this.scene.sys.game.config.height || 720;
+    const bgOffsetX = 25;
+
+    // Determinar quién recibe fondos
+    let drawPlyBg = false;
+    let drawOppBg = false;
+
+    if (this.middleScroll === 'none') {
+        drawPlyBg = !hidePlyStrums;
+        drawOppBg = !hideOppStrums;
+    } else {
+        if (playerEnemy) {
+            drawOppBg = !hideOppStrums; // El enemigo se centra y recibe fondo
+            drawPlyBg = false;
+        } else {
+            drawPlyBg = !hidePlyStrums; // El jugador se centra y recibe fondo
+            drawOppBg = false;
+        }
+    }
+
+    if (bgOpacity > 0 && this.dirs.length > 0) {
+        const lastIdx = this.dirs.length - 1;
+
+        if (drawPlyBg) {
+            const firstPly = positioner.getPos(0, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
+            const lastPly = positioner.getPos(lastIdx, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
+
+            const centerX = (firstPly.x + lastPly.x) / 2;
+            const totalWidth = Math.abs(lastPly.x - firstPly.x) + baseSpacing + 10;
+
+            let bgPly = this.scene.add.rectangle(centerX + bgOffsetX, 0, totalWidth, screenHeight, 0x000000);
+            bgPly.setOrigin(0.5, 0);
+            bgPly.setAlpha(bgOpacity);
+            bgPly.setDepth(-100);
+            if (this.scene.referee.cameras) {
+                this.scene.referee.cameras.add(bgPly, "ui");
+            }
+        }
+
+        if (drawOppBg) {
+            const firstOpp = positioner.getPos(0, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
+            const lastOpp = positioner.getPos(lastIdx, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
+
+            const centerX = (firstOpp.x + lastOpp.x) / 2;
+            const totalWidth = Math.abs(lastOpp.x - firstOpp.x) + baseSpacing + 10;
+
+            let bgOpp = this.scene.add.rectangle(centerX + bgOffsetX, 0, totalWidth, screenHeight, 0x000000);
+            bgOpp.setOrigin(0.5, 0);
+            bgOpp.setAlpha(bgOpacity);
+            bgOpp.setDepth(-100);
+            if (this.scene.referee.cameras) {
+                this.scene.referee.cameras.add(bgOpp, "ui");
+            }
+        }
+    }
+
     this.dirs.forEach((dir, i) => {
       const pOpp = positioner.getPos(i, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
+      const pPly = positioner.getPos(i, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
+
       const opp = new window.Strum(this.scene, pOpp.x, pOpp.y, dir, i);
       opp.applyScale(pOpp.scale);
       opp.setAlpha(pOpp.strumAlpha);
       opp.noteAlpha = pOpp.noteAlpha;
       opp.downscroll = pOpp.downscroll;
 
-      const pPly = positioner.getPos(i, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
       const ply = new window.Strum(this.scene, pPly.x, pPly.y, dir, i);
       ply.applyScale(pPly.scale);
       ply.setAlpha(pPly.strumAlpha);
@@ -243,15 +308,11 @@ class StrumlineLogic {
         window.Health.checkGameOver(this.scene);
     }
 
-    // SOLUCIÓN APLICADA AQUÍ: Combinamos compatibilidad antigua con el nuevo sistema de Score
     const packet = {
-        // --- VARIABLES DE RETRO-COMPATIBILIDAD PARA AUDIO Y SPLASHES ---
         note: note,
         rating: rating,
         score: score,
         health: window.Health ? window.Health.currentHealth : 1.0,
-
-        // --- VARIABLES NUEVAS PARA MULTIJUGADOR Y SCORE LOGIC ---
         playerId: isOpponent ? "p2" : "p1",
         action: "hit",
         timestamp: performance.now(),
@@ -262,7 +323,6 @@ class StrumlineLogic {
         noteData: note.noteData
     };
 
-    // Emitimos el paquete completo
     this.scene.events.emit("noteHit", packet);
 
     const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
@@ -289,14 +349,10 @@ class StrumlineLogic {
         window.Health.checkGameOver(this.scene);
     }
 
-    // SOLUCIÓN APLICADA AQUÍ TAMBIÉN
     const packet = {
-        // --- RETRO-COMPATIBILIDAD ---
         direction: strum.direction,
         isOpponent: isOpponent,
         health: window.Health ? window.Health.currentHealth : 1.0,
-
-        // --- NUEVOS DATOS ---
         playerId: isOpponent ? "p2" : "p1",
         action: "ghostMiss",
         timestamp: performance.now(),

@@ -1,4 +1,3 @@
-// public/engine/src/utils/fileSystem/FileSystem.js
 
 class FileSystem {
     static provider = null;
@@ -20,7 +19,6 @@ class FileSystem {
         if (this.provider && typeof this.provider.init === 'function') {
             await this.provider.init();
 
-            // ¡Aplicar el Monkey Patch si estamos en PC para inyectar mods!
             if (this.env === 'desktop') {
                 this.applyMonkeyPatches();
             }
@@ -28,81 +26,100 @@ class FileSystem {
     }
 
     /**
-     * MAGIA OSCURA: Intercepta peticiones para inyectar y fusionar mods.
+     * Escanea e inyecta todos los archivos .js dentro de mods/NombreMod/src/
+     */
+    static async injectModScripts() {
+        if (this.env !== 'desktop') return;
+
+        for (const mod of this.activeMods) {
+            const srcPath = `mods/${mod}/src`;
+            if (await this.exists(srcPath)) {
+                console.log(`%c MOD SCRIPT %c Escaneando scripts en mod: ${mod}`, 'background: #bf360c; color: white;', 'color: unset;');
+                const jsFiles = await this.getAllJsFiles(srcPath);
+
+                for (const file of jsFiles) {
+                    console.log(`%c MOD SCRIPT %c Inyectando: ${file}`, 'background: #e65100; color: white;', 'color: unset;');
+                    const code = await this.readText(file);
+
+                    // Crear etiqueta script e inyectar el código
+                    const script = document.createElement('script');
+                    script.type = 'text/javascript';
+                    // El sourceURL permite que el archivo inyectado se vea ordenado en las DevTools (F12)
+                    script.text = code + `\n//# sourceURL=mod://${mod}/${file}`;
+                    document.head.appendChild(script);
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper recursivo para encontrar todos los .js en subcarpetas
+     */
+    static async getAllJsFiles(dir) {
+        let scripts = [];
+        try {
+            const entries = await this.readDir(dir);
+            for (const entry of entries) {
+                const fullPath = `${dir}/${entry.entry}`;
+                if (entry.type === 'DIRECTORY') {
+                    const subScripts = await this.getAllJsFiles(fullPath);
+                    scripts = scripts.concat(subScripts);
+                } else if (entry.entry.endsWith('.js')) {
+                    scripts.push(fullPath);
+                }
+            }
+        } catch (e) {}
+        return scripts;
+    }
+
+    /**
+     * MAGIA OSCURA: Intercepta peticiones para inyectar assets.
      */
     static applyMonkeyPatches() {
-        // 1. Monkey Patch a fetch() -> Controla la lectura de JSONs y TXTs (DataSongs)
         const originalFetch = window.fetch;
         window.fetch = async (...args) => {
             const url = args[0];
             if (typeof url === 'string' && url.includes('assets/')) {
-                const cleanPath = url.substring(url.indexOf('assets/') + 7); // Quita 'assets/' (ej. data/ui/weeks.txt)
+                const cleanPath = url.substring(url.indexOf('assets/') + 7);
 
-                // --- CASO ESPECIAL: FUSIÓN DE SEMANAS ---
+                // --- CASO ESPECIAL: FUSIÓN DE SEMANAS (Suma directa, sin filtros) ---
                 if (cleanPath.endsWith('weeks.txt')) {
-                    let combinedWeeks = [];
+                    let combinedText = "";
 
-                    // A. Leer las semanas originales del juego base
                     try {
                         const baseRes = await originalFetch.apply(window, args);
-                        if (baseRes.ok) {
-                            const baseText = await baseRes.text();
-                            // Limpiamos y metemos a la lista
-                            baseText.split(/\r?\n/).forEach(w => {
-                                if (w.trim() !== '') combinedWeeks.push(w.trim());
-                            });
-                        }
+                        if (baseRes.ok) combinedText += (await baseRes.text()) + "\n";
                     } catch (e) {}
 
-                    // B. Buscar weeks.txt en los mods y sumarlos a la lista
                     for (const mod of FileSystem.activeMods) {
-                        // Soporta ambas estructuras: con 'assets/' adentro o directo
-                        const modPath = `${FileSystem.provider.modsPath}/${mod}/${cleanPath}`;
-                        const modPathAlt = `${FileSystem.provider.modsPath}/${mod}/assets/${cleanPath}`;
-
-                        let finalModPath = null;
-                        if (await FileSystem.provider.exists(modPath)) finalModPath = modPath;
-                        else if (await FileSystem.provider.exists(modPathAlt)) finalModPath = modPathAlt;
-
-                        if (finalModPath) {
-                            console.log(`%c MODS %c Añadiendo semanas del mod: ${mod}`, 'background: #00838f; color: white;', 'color: unset;');
-                            const modText = await FileSystem.provider.readText(finalModPath);
-
-                            modText.split(/\r?\n/).forEach(w => {
-                                const cleanWeek = w.trim();
-                                // Lo sumamos solo si no está vacío y no es un duplicado
-                                if (cleanWeek !== '' && !combinedWeeks.includes(cleanWeek)) {
-                                    combinedWeeks.push(cleanWeek);
-                                }
-                            });
+                        const modPath = `mods/${mod}/assets/${cleanPath}`; // AHORA BUSCA EN assets/
+                        if (await FileSystem.exists(modPath)) {
+                            combinedText += (await FileSystem.readText(modPath)) + "\n";
                         }
                     }
 
-                    // Devolvemos la lista perfectamente fusionada con saltos de línea
-                    return new Response(combinedWeeks.join('\n'), { status: 200 });
+                    return new Response(combinedText.trim(), {
+                        status: 200,
+                        headers: { 'Content-Type': 'text/plain' }
+                    });
                 }
 
-                // --- CASO NORMAL: SOBRESCRIBIR JSONs y otros textos ---
+                // --- CASO NORMAL: SOBRESCRIBIR ---
                 for (const mod of FileSystem.activeMods) {
-                    const modPath = `${FileSystem.provider.modsPath}/${mod}/${cleanPath}`;
-                    const modPathAlt = `${FileSystem.provider.modsPath}/${mod}/assets/${cleanPath}`;
+                    const modPath = `mods/${mod}/assets/${cleanPath}`; // AHORA BUSCA EN assets/
 
-                    let finalModPath = null;
-                    if (await FileSystem.provider.exists(modPath)) finalModPath = modPath;
-                    else if (await FileSystem.provider.exists(modPathAlt)) finalModPath = modPathAlt;
-
-                    if (finalModPath) {
-                        console.log(`%c MODS (Fetch) %c Inyectando: ${cleanPath}`, 'background: #4a148c; color: white;', 'color: unset;');
-                        const text = await FileSystem.provider.readText(finalModPath);
-                        return new Response(text, { status: 200 });
+                    if (await FileSystem.exists(modPath)) {
+                        const text = await FileSystem.readText(modPath);
+                        return new Response(text, {
+                            status: 200,
+                            headers: { 'Content-Type': cleanPath.endsWith('.json') ? 'application/json' : 'text/plain' }
+                        });
                     }
                 }
             }
-            // Si no está en mods, carga original
             return originalFetch.apply(window, args);
         };
 
-        // 2. Monkey Patch a XHR -> Controla Phaser (this.load.image, this.load.json)
         const originalOpen = XMLHttpRequest.prototype.open;
         const originalSend = XMLHttpRequest.prototype.send;
 
@@ -119,29 +136,21 @@ class FileSystem {
                 (async () => {
                     let foundModData = null;
 
-                    // Revisar si algún mod tiene este archivo para sobrescribirlo (Soporta ambas estructuras)
                     for (const mod of FileSystem.activeMods) {
-                        const modPath = `${FileSystem.provider.modsPath}/${mod}/${cleanPath}`;
-                        const modPathAlt = `${FileSystem.provider.modsPath}/${mod}/assets/${cleanPath}`;
+                        const modPath = `mods/${mod}/assets/${cleanPath}`; // AHORA BUSCA EN assets/
 
-                        let finalModPath = null;
-                        if (await FileSystem.provider.exists(modPath)) finalModPath = modPath;
-                        else if (await FileSystem.provider.exists(modPathAlt)) finalModPath = modPathAlt;
-
-                        if (finalModPath) {
-                            console.log(`%c MODS (Phaser) %c Inyectando asset: ${cleanPath}`, 'background: #311b92; color: white;', 'color: unset;');
-
+                        if (await FileSystem.exists(modPath)) {
                             if (cleanPath.match(/\.(json|txt|xml|csv)$/i)) {
-                                foundModData = { text: await FileSystem.provider.readText(finalModPath) };
+                                foundModData = { text: await FileSystem.readText(modPath) };
                             } else {
-                                foundModData = { buffer: await Neutralino.filesystem.readBinaryFile(finalModPath) };
+                                const fullModPath = `${FileSystem.provider.basePath}/${modPath}`;
+                                foundModData = { buffer: await Neutralino.filesystem.readBinaryFile(fullModPath) };
                             }
                             break;
                         }
                     }
 
                     if (foundModData) {
-                        // Engañar a Phaser haciéndole creer que la petición de red fue exitosa
                         Object.defineProperty(this, 'readyState', { value: 4, writable: true });
                         Object.defineProperty(this, 'status', { value: 200, writable: true });
 
@@ -157,11 +166,16 @@ class FileSystem {
                             Object.defineProperty(this, 'response', { value: foundModData.text });
                         }
 
-                        if (typeof this.onload === 'function') this.onload();
-                        if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
-                        this.dispatchEvent(new Event('load'));
+                        const mockEvent = { target: this, type: 'load' };
+
+                        if (typeof this.onreadystatechange === 'function') this.onreadystatechange(mockEvent);
+                        if (typeof this.onload === 'function') this.onload(mockEvent);
+                        if (typeof this.onloadend === 'function') this.onloadend(mockEvent);
+
+                        try {
+                            this.dispatchEvent(new Event('load'));
+                        } catch (e) {}
                     } else {
-                        // Petición original si el mod no tiene el archivo
                         originalSend.call(this, body);
                     }
                 })();

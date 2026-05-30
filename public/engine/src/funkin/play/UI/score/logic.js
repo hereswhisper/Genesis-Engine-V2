@@ -8,6 +8,11 @@ class ScoreLogic {
 
         // Variables de estadísticas
         this.score = 0;
+
+        // --- ANIMACIÓN DEL SCORE ---
+        this.displayScore = 0; // El valor que se mostrará visualmente
+        this.scoreAnimSpeed = 15; // Velocidad de subida (entre más alto, más rápido)
+
         this.misses = 0;
         this.combo = 0;
         this.maxCombo = 0;
@@ -53,22 +58,17 @@ class ScoreLogic {
     }
 
     onNoteHit(packet) {
-        // 1. IDENTIFICACIÓN BLINDADA: Averiguar de quién es la nota incluso si viene del BotLogic antiguo
         let isMainPlayer = true;
 
         if (packet && packet.playerId) {
-            // Nuevo sistema
             isMainPlayer = (packet.playerId === this.mainPlayerId);
         } else if (packet && packet.note && packet.note.noteData) {
-            // Sistema antiguo (usado por el Bot)
             const expectedP = this.mainPlayerId === "p2" ? "op" : "pl";
             isMainPlayer = (packet.note.noteData.p === expectedP);
         }
 
-        // Si NO es el jugador principal, ignoramos todo para que el enemigo no suba el combo/accuracy
         if (!isMainPlayer) return;
 
-        // 2. ACTUALIZAR COMBO
         this.combo++;
         if (this.combo > this.maxCombo) {
             this.maxCombo = this.combo;
@@ -76,8 +76,7 @@ class ScoreLogic {
 
         this.totalNotesHit++;
 
-        // 3. ACTUALIZAR SCORE (Filtro Anti-NaN)
-        let points = 350; // Valor seguro por defecto
+        let points = 350;
         if (packet && packet.scoreAdded !== undefined && !isNaN(packet.scoreAdded)) {
             points = packet.scoreAdded;
         } else if (packet && packet.score !== undefined && !isNaN(packet.score)) {
@@ -85,7 +84,6 @@ class ScoreLogic {
         }
         this.score += points;
 
-        // 4. ACTUALIZAR PRECISIÓN (ACCURACY)
         let weight = 1.0;
         const ratingName = (packet && packet.rating) ? packet.rating.toLowerCase() : 'sick';
 
@@ -96,7 +94,7 @@ class ScoreLogic {
             case 'good':    weight = 0.75; break;
             case 'bad':     weight = 0.5; break;
             case 'shit':    weight = 0.25; break;
-            default:        weight = 1.0; break; // Prevención de errores si no hay rating
+            default:        weight = 1.0; break;
         }
 
         this.totalHitsWeight += weight;
@@ -139,11 +137,8 @@ class ScoreLogic {
 
     getAccuracy() {
         if (this.totalNotesHit === 0) return "0.00";
-
-        // Cálculo con protección extra contra NaN
         let acc = (this.totalHitsWeight / this.totalNotesHit) * 100;
         if (isNaN(acc)) return "0.00";
-
         return acc.toFixed(2);
     }
 
@@ -168,6 +163,16 @@ class ScoreLogic {
     }
 
     update(time, delta) {
+        // LÓGICA DE ANIMACIÓN DEL SCORE (Interpolar displayScore al Score Real)
+        if (this.displayScore !== this.score) {
+            this.displayScore += (this.score - this.displayScore) * (this.scoreAnimSpeed * (delta / 1000));
+
+            // Para asegurar que no quede en decimales infinitos saltando, le hacemos un snap final
+            if (Math.abs(this.score - this.displayScore) < 0.5) {
+                this.displayScore = this.score;
+            }
+        }
+
         if (this.renderer && typeof this.renderer.update === 'function') {
             this.renderer.update(time, delta);
         }

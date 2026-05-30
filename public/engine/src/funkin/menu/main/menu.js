@@ -8,7 +8,7 @@ class MainMenuScene extends Phaser.Scene {
     this.load.image("menuBG", Path.menu + "bg/menuBG.png");
     this.load.image("menuBGMagenta", Path.menu + "bg/menuDesat.png");
 
-    this.itemNames = ["freeplay"];
+    this.itemNames = ["freeplay", "multiplayer"];
 
     // Carga secuencial de Atlas
     this.itemNames.forEach((item) => {
@@ -268,6 +268,7 @@ class MainMenuScene extends Phaser.Scene {
   executeTransition(id) {
     const scenes = {
       storymode: "StoryMenuScene",
+      multiplayer: "MultiplayerScene",
       freeplay: "FreeplayScene",
       options: "OptionsScene",
       credits: "CreditsScene",

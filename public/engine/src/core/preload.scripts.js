@@ -36,7 +36,6 @@ async function loadScriptsOrderly() {
         script.src = prefix + src;
         script.onload = resolve;
         script.onerror = () => {
-          // Texto directo para que el logger no lo pierda
           reject(`Archivo no encontrado o bloqueado: ${prefix + src}`);
         };
         document.getElementById("scripts-container").appendChild(script);
@@ -55,7 +54,6 @@ async function loadScriptsOrderly() {
 }
 
 async function bootEngine() {
-  // 1. CONDICIÓN CLAVE: Solo inicializamos Neutralino si NO estamos en React Native
   if (typeof Neutralino !== "undefined" && !window.isReactNative) {
     Neutralino.init();
     console.log(
@@ -64,8 +62,12 @@ async function bootEngine() {
       "color: unset;"
     );
 
-    // Inicia el sistema de archivos y APLICA los Monkey Patches para mods
+    // Inicia el sistema de archivos
     await FileSystem.init();
+
+    // INYECTA LOS SCRIPTS DE LOS MODS AQUÍ (Antes de arrancar Phaser y DataSongs)
+    await FileSystem.injectModScripts();
+
   } else if (window.isReactNative) {
     console.log(
       "%c GENESIS %c Neutralino ignorado (Modo React Native).",
@@ -74,17 +76,14 @@ async function bootEngine() {
     );
   }
 
-  // 1.5 Cargar base de datos musical DESPUÉS del FileSystem, para que los mods se inyecten
   if (window.DataSongs) {
     await window.DataSongs.loadWeeks();
   }
 
-  // 2. Parches de almacenamiento
   if (typeof window.StoragePatch !== "undefined") {
     await window.StoragePatch.init();
   }
 
-  // 3. Inicialización de Phaser
   if (window.GenesisConfig) {
     const queuedScenes = window.game._sceneQueue || [];
     window.game = new Phaser.Game(window.GenesisConfig);

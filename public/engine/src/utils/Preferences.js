@@ -4,7 +4,7 @@
  */
 class Preferences {
     static ghostTapping = false;
-    static downscroll = true;
+    static downscroll = false;
     static middleScroll = 'none'; // none, mini & split
     static botplay = true;
     static twoPlayers = false;
@@ -16,6 +16,9 @@ class Preferences {
     static popUpAnim = 'default'; // default & stackeable
     static popUpPos = [50, 42];
     static showOpPopUp = true;
+
+    // NUEVA PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
+    static strumBackgroundOpacity = 1.0;
 
     // NUEVAS PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
     static muteMissNote = false;
@@ -47,6 +50,11 @@ class Preferences {
             }
         };
 
+        const getFloat = (key, defaultVal) => {
+            const val = localStorage.getItem(key);
+            return val !== null ? parseFloat(val) : defaultVal;
+        };
+
         this.ghostTapping = getBool('genesis_ghost_tapping', this.ghostTapping);
         this.downscroll = getBool('genesis_downscroll', this.downscroll);
         this.middleScroll = getString('genesis_middle_scroll', this.middleScroll);
@@ -62,6 +70,9 @@ class Preferences {
         this.popUpAnim = getString('genesis_popup_anim', this.popUpAnim);
         this.popUpPos = getArray('genesis_popup_pos', this.popUpPos);
         this.showOpPopUp = getBool('genesis_show_op_popup', this.showOpPopUp);
+
+        // Cargar opacidad del fondo de strumlines
+        this.strumBackgroundOpacity = getFloat('genesis_strum_bg_opacity', this.strumBackgroundOpacity);
 
         // Cargar las nuevas preferencias de sonido
         this.muteMissNote = getBool('genesis_mute_miss_note', this.muteMissNote);
@@ -86,6 +97,9 @@ class Preferences {
         localStorage.setItem('genesis_popup_anim', this.popUpAnim);
         localStorage.setItem('genesis_popup_pos', JSON.stringify(this.popUpPos));
         localStorage.setItem('genesis_show_op_popup', this.showOpPopUp);
+
+        // Guardar opacidad del fondo de strumlines
+        localStorage.setItem('genesis_strum_bg_opacity', this.strumBackgroundOpacity);
 
         // Guardar las nuevas preferencias de sonido
         localStorage.setItem('genesis_mute_miss_note', this.muteMissNote);

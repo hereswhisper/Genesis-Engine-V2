@@ -11,9 +11,12 @@ class HealthRenderer {
 
         this.posPercent = [50, 89];
 
-        // Determinar la posición inicial según la preferencia de scroll
+        // FORZAR POSICIÓN SUPERIOR (11%) si es downscroll O si las strumlines están en formato móvil
         const isDownscroll = window.Preferences && window.Preferences.downscroll;
-        const currentYPercent = isDownscroll ? 11 : this.posPercent[1];
+        const isMobileStrums = window.isMobile || window.isReactNative;
+        const forceTop = isDownscroll || isMobileStrums;
+
+        const currentYPercent = forceTop ? 11 : this.posPercent[1];
 
         const posX = this.scene.scale.width * (this.posPercent[0] / 100);
         const posY = this.scene.scale.height * (currentYPercent / 100);
@@ -53,9 +56,12 @@ class HealthRenderer {
             this.barHeight = this.frameSprite.height;
         }
 
-        // AJUSTE DINÁMICO: Recalcular la posición Y por si cambia la preferencia en tiempo real
+        // AJUSTE DINÁMICO: Recalcular la posición Y por si cambia la preferencia o si entra a modo móvil
         const isDownscroll = window.Preferences && window.Preferences.downscroll;
-        const currentYPercent = isDownscroll ? 11 : this.posPercent[1];
+        const isMobileStrums = window.isMobile || window.isReactNative;
+        const forceTop = isDownscroll || isMobileStrums;
+
+        const currentYPercent = forceTop ? 11 : this.posPercent[1];
 
         const posX = this.scene.scale.width * (this.posPercent[0] / 100);
         const posY = this.scene.scale.height * (currentYPercent / 100);

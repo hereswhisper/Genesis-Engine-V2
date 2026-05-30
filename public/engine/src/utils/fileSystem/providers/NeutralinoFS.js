@@ -1,4 +1,3 @@
-// src/utils/fileSystem/providers/NeutralinoFS.js
 
 class NeutralinoFS {
     constructor() {

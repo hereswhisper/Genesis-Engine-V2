@@ -3,16 +3,52 @@
 class Stage {
     static preload(scene) {
         const pd = scene.playData;
-        const stageName = pd.get('stage', 'stage');
+        // OJO: El primer argumento es 'stage' (la propiedad en el JSON de la canción).
+        // El segundo es 'mainStage', que es el valor por defecto si no encuentra la propiedad.
+        const stageName = pd.get('stage', 'mainStage');
         const jsonKey = 'stageData_' + stageName;
 
         if (scene.cache.json.exists(jsonKey)) {
-            Stage.loadAssets(scene, scene.cache.json.get(jsonKey), stageName);
+            const cachedData = scene.cache.json.get(jsonKey);
+            // Si ya estaba en caché y fue un fallback previo, respetamos su folder 'mainStage'
+            const targetFolder = cachedData._isFallback ? 'mainStage' : stageName;
+            Stage.loadAssets(scene, cachedData, targetFolder);
         } else {
-            scene.load.json(jsonKey, window.Path.dataStages + stageName + '.json');
+            let isFallback = false;
+
+            // 1. Escuchamos el éxito de la carga (ya sea la original o la de rescate)
             scene.load.once('filecomplete-json-' + jsonKey, (key, type, data) => {
-                Stage.loadAssets(scene, data, stageName);
+                scene.load.off('loaderror', errorHandler); // Limpiamos el detector de errores
+
+                if (isFallback) {
+                    data._isFallback = true; // Inyectamos bandera para el constructor
+                }
+
+                const targetFolder = isFallback ? 'mainStage' : stageName;
+                Stage.loadAssets(scene, data, targetFolder);
             });
+
+            // 2. Escuchamos por si ocurre un 404 (Archivo no encontrado)
+            const errorHandler = (file) => {
+                // Verificamos que el error sea específicamente nuestro JSON
+                if (file.key === jsonKey) {
+                    scene.load.off('loaderror', errorHandler); // Evitar bucles infinitos
+
+                    if (stageName !== 'mainStage') {
+                        console.warn(`[Stage] ⚠️ Stage "${stageName}" no encontrado. Ejecutando fallback a mainStage.json...`);
+                        isFallback = true;
+                        // Añadimos el stage por defecto a la cola con la MISMA llave
+                        scene.load.json(jsonKey, window.Path.dataStages + 'mainStage.json');
+                    } else {
+                        console.error(`[Stage] ❌ Error crítico: El stage de rescate (mainStage.json) no existe.`);
+                    }
+                }
+            };
+
+            scene.load.on('loaderror', errorHandler);
+
+            // 3. Iniciamos la solicitud de carga original
+            scene.load.json(jsonKey, window.Path.dataStages + stageName + '.json');
         }
     }
 
@@ -33,9 +69,13 @@ class Stage {
 
     constructor(scene) {
         this.scene = scene;
-        this.stageName = scene.playData.get('stage', 'stage');
+        // Aquí también: buscamos la propiedad 'stage', con fallback a 'mainStage'
+        this.stageName = scene.playData.get('stage', 'mainStage');
         this.data = this.scene.cache.json.get('stageData_' + this.stageName) || {};
-        this.folder = this.data.pathName || this.stageName;
+
+        // Usamos el flag inyectado en preload para saber si debemos usar el folder por defecto 'mainStage'
+        const isFallback = this.data._isFallback === true;
+        this.folder = this.data.pathName || (isFallback ? 'mainStage' : this.stageName);
 
         this.elements = [];
         this.characterPositions = {};

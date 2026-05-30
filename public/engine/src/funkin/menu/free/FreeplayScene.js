@@ -182,7 +182,13 @@ class FreeplayScene extends Phaser.Scene {
     });
 
     if (this.globalDifficulties.length === 0) this.globalDifficulties = ["normal"];
-    this.currentDiffIndex = this.globalDifficulties.indexOf("normal");
+
+    // NUEVO: Intentar recuperar la dificultad previamente recordada
+    let savedDiff = window.FreeplayState_rememberedDiff || "normal";
+    this.currentDiffIndex = this.globalDifficulties.indexOf(savedDiff);
+
+    // Si la dificultad recordada no existe en la lista global actual, volvemos a "normal" o 0
+    if (this.currentDiffIndex === -1) this.currentDiffIndex = this.globalDifficulties.indexOf("normal");
     if (this.currentDiffIndex === -1) this.currentDiffIndex = 0;
   }
 
@@ -311,7 +317,10 @@ class FreeplayScene extends Phaser.Scene {
   confirmSelection() {
     this.canInteract = false;
     this.sound.play("confirmMenu");
+
+    // PERSISTENCIA: Guardamos tanto la canción como la dificultad actual en la ventana global
     window.FreeplayState_rememberedIndex = this.selectedIndex;
+    window.FreeplayState_rememberedDiff = this.globalDifficulties[this.currentDiffIndex];
 
     let selectedSong = this.songsList[this.selectedIndex];
     let item = this.alphabetGroup[this.selectedIndex];
