@@ -110,7 +110,7 @@ class Song {
 
         this.onNoteHitListener = this.onNoteHit.bind(this);
         this.onNoteMissListener = this.onNoteMiss.bind(this);
-        this.onGhostMissListener = this.onGhostMiss.bind(this); // Escuchador de Ghost Miss
+        this.onGhostMissListener = this.onGhostMiss.bind(this);
 
         this.scene.events.on('noteHit', this.onNoteHitListener);
         this.scene.events.on('noteMiss', this.onNoteMissListener);
@@ -168,7 +168,6 @@ class Song {
         const isPlayer = data.note.noteData.p === 'pl';
         const isOpponent = data.note.noteData.p === 'op';
 
-        // Simplemente desmuteamos la voz de la pista correspondiente cuando hay un acierto.
         if (isPlayer) {
             if (this.playerTrack && this.playerTrack.volume === 0) {
                 this.playerTrack.volume = 1;
@@ -187,13 +186,22 @@ class Song {
 
         const isPlayer = data.note.noteData.p === 'pl';
         const isOpponent = data.note.noteData.p === 'op';
-        const isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
-        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+
+        let isTwoPlayersActive = false;
+        let playerEnemy = false;
+
+        // CORRECCIÓN: Asignación estricta para Host = false (No es enemigo), Cliente = true (Sí es enemigo)
+        if (window.isMultiplayer && window.MultiplayerData) {
+            playerEnemy = !window.MultiplayerData.isHost;
+            isTwoPlayersActive = false;
+        } else {
+            isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
+            playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        }
 
         const isMainPlayerMiss = playerEnemy ? isOpponent : isPlayer;
 
         if (isMainPlayerMiss || (isTwoPlayersActive && !isMainPlayerMiss)) {
-            // 1. Muteamos la voz
             if (isPlayer) {
                 if (this.playerTrack && this.playerTrack.volume > 0) {
                     this.playerTrack.volume = 0;
@@ -206,7 +214,6 @@ class Song {
                 }
             }
 
-            // 2. Evaluamos la preferencia correspondiente para el sonido
             let isMutedByPreference = isMainPlayerMiss
                 ? (window.Preferences ? window.Preferences.muteMissNote : false)
                 : (window.Preferences ? window.Preferences.muteMissNoteEnemy : false);
@@ -228,30 +235,52 @@ class Song {
         let isPlayer = true;
         let isOpponent = false;
 
-        // Soporte tanto para el nuevo formato por paquete, como para el antiguo de retrocompatibilidad
         if (data.playerId) {
-            isPlayer = data.playerId === 'p1';
-            isOpponent = data.playerId === 'p2';
+            const pId = data.playerId.toLowerCase();
+            if (pId === 'p1' || pId === 'host' || pId === 'local' || pId === 'pl') {
+                isPlayer = true;
+                isOpponent = false;
+            } else if (pId === 'p2' || pId === 'guest' || pId === 'enemy' || pId === 'op') {
+                isPlayer = false;
+                isOpponent = true;
+            }
         } else if (data.isOpponent !== undefined) {
             isOpponent = data.isOpponent;
             isPlayer = !isOpponent;
         }
 
-        const isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
-        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        let isTwoPlayersActive = false;
+        let playerEnemy = false;
+
+        // CORRECCIÓN: Asignación estricta para Host = false (No es enemigo), Cliente = true (Sí es enemigo)
+        if (window.isMultiplayer && window.MultiplayerData) {
+            playerEnemy = !window.MultiplayerData.isHost;
+            isTwoPlayersActive = false;
+        } else {
+            isTwoPlayersActive = window.Preferences ? window.Preferences.twoPlayers : false;
+            playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        }
 
         const isMainPlayerMiss = playerEnemy ? isOpponent : isPlayer;
 
-        // Mismo filtro de dos jugadores / jugador principal
         if (isMainPlayerMiss || (isTwoPlayersActive && !isMainPlayerMiss)) {
 
-            // Elegir preferencia dependiendo de quién provocó el fallo fantasma
+            if (isPlayer) {
+                if (this.playerTrack && this.playerTrack.volume > 0) {
+                    this.playerTrack.volume = 0;
+                }
+            } else if (isOpponent) {
+                if (this.opponentTrack && this.opponentTrack.volume > 0) {
+                    this.opponentTrack.volume = 0;
+                } else if (this.playerTrack && this.playerTrack.volume > 0 && !this.multiVocal) {
+                    this.playerTrack.volume = 0;
+                }
+            }
+
             let isMutedByPreference = isMainPlayerMiss
                 ? (window.Preferences ? window.Preferences.muteMissNote : false)
                 : (window.Preferences ? window.Preferences.muteMissNoteEnemy : false);
 
-            // A diferencia de NoteMiss normal, normalmente los fallos fantasma no mutean
-            // la pista de voz activa, solo reproducen el efecto de "bop" fallido.
             if (!isMutedByPreference && !this.muteMiss) {
                 if (this.missSoundKeys.length > 0) {
                     const randomKey = this.missSoundKeys[Math.floor(Math.random() * this.missSoundKeys.length)];
@@ -277,7 +306,7 @@ class Song {
 
         this.scene.events.off('noteHit', this.onNoteHitListener);
         this.scene.events.off('noteMiss', this.onNoteMissListener);
-        this.scene.events.off('ghostMiss', this.onGhostMissListener); // Quitar escuchador de Ghost Miss
+        this.scene.events.off('ghostMiss', this.onGhostMissListener);
 
         const tracks = [this.instTrack, this.playerTrack, this.opponentTrack];
         tracks.forEach(track => {

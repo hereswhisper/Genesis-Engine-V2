@@ -73,9 +73,16 @@ class ComboLogic {
 
         let baseX = 0;
         let baseY = 0;
-        const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
 
-        if (isTwoPlayers) {
+        // Variables maestras de validación
+        const isMultiplayer = window.isMultiplayer || false;
+        const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+        const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
+
+        // Regla: Pantalla dividida SOLO si es Multi/2P Y los popups del rival NO están ocultos
+        const useSplitScreen = (isTwoPlayers || isMultiplayer) && showOpPopUp;
+
+        if (useSplitScreen) {
             // INVERTIDO: Enemigo (P2) a la izquierda, Jugador (P1) a la derecha
             if (isOpponent) {
                 baseX = (this.scene.scale.width * 0.25) + 70; // 25% (Izquierda) + offset
@@ -84,6 +91,7 @@ class ComboLogic {
             }
             baseY = (this.scene.scale.height * 0.50) + 50;
         } else {
+            // Regresar a coordenadas dinámicas basadas en los porcentajes del usuario
             const posPercent = (window.Preferences && window.Preferences.popUpPos)
                 ? window.Preferences.popUpPos
                 : [50, 42];
@@ -133,19 +141,27 @@ class ComboLogic {
     onNoteHit(data) {
         if (!data || !data.note) return;
 
-        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        const isMultiplayer = window.isMultiplayer || false;
+
+        // Auto-determinamos el rol en multiplayer
+        const playerEnemy = isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-        const isBotplay = window.Preferences ? window.Preferences.botplay : false; // <-- VARIABLE BOTPLAY
+        const isBotplay = window.Preferences ? window.Preferences.botplay : false;
+        const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
         const isOpponentNote = data.note.noteData && data.note.noteData.p === 'op';
         const isMainPlayerNote = playerEnemy ? isOpponentNote : !isOpponentNote;
 
-        // NUEVO: Si es Botplay y la nota es del jugador, ignoramos el hit del combo por completo.
         if (isMainPlayerNote && isBotplay) return;
 
-        if (!isMainPlayerNote && !isTwoPlayers) return;
+        // Si la nota no es tuya y no estas en multi/2p, ignorar
+        if (!isMainPlayerNote && !isTwoPlayers && !isMultiplayer) return;
 
-        if (!isMainPlayerNote && isTwoPlayers && window.Preferences && window.Preferences.showOpPopUp === false) {
+        // Si es multi/2p, no es tuya, PERO ocultaste al rival, ignorar
+        if (!isMainPlayerNote && (isTwoPlayers || isMultiplayer) && !showOpPopUp) {
             return;
         }
 
@@ -159,19 +175,24 @@ class ComboLogic {
     }
 
     onNoteMiss(data) {
-        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        const isMultiplayer = window.isMultiplayer || false;
+
+        const playerEnemy = isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-        const isBotplay = window.Preferences ? window.Preferences.botplay : false; // <-- VARIABLE BOTPLAY
+        const isBotplay = window.Preferences ? window.Preferences.botplay : false;
+        const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
         const isOpponentMiss = data && data.p === 'op';
         const isMainPlayerMiss = playerEnemy ? isOpponentMiss : !isOpponentMiss;
 
-        // NUEVO: Evitamos resetear o mostrar el miss (000) si el Botplay está activo.
         if (isMainPlayerMiss && isBotplay) return;
 
-        if (!isMainPlayerMiss && !isTwoPlayers) return;
+        if (!isMainPlayerMiss && !isTwoPlayers && !isMultiplayer) return;
 
-        if (!isMainPlayerMiss && isTwoPlayers && window.Preferences && window.Preferences.showOpPopUp === false) {
+        if (!isMainPlayerMiss && (isTwoPlayers || isMultiplayer) && !showOpPopUp) {
             return;
         }
 

@@ -20,6 +20,9 @@ class NoteLogic {
     }
 
     update(time, delta) {
+        // NUEVO: Si estamos esperando jugador en multijugador, bloqueamos la generación de notas
+        if (window.isMultiplayerWaiting) return;
+
         const songTime = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
         const spawnThreshold = 4500;
 
@@ -46,7 +49,7 @@ class NoteLogic {
 
                 const isOpponent = note.noteData.p === 'op';
 
-                // AHORA USA HEALTH DIRECTAMENTE
+                // Usamos Health directamente
                 if (window.Health) {
                     window.Health.applyMiss(isOpponent);
                     window.Health.checkGameOver(this.scene);

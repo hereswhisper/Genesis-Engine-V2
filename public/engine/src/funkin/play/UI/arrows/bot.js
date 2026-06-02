@@ -5,6 +5,12 @@ class BotLogic {
     this.scene = scene;
     this.enemyBot = true;
     this.playerBot = false;
+
+    // Si desde el inicio detectamos que es multijugador, apagamos los bots
+    if (window.isMultiplayer) {
+        this.enemyBot = false;
+        this.playerBot = false;
+    }
   }
 
   update(time, delta) {
@@ -18,8 +24,11 @@ class BotLogic {
     const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
     const isBotPlayActive = window.Preferences ? window.Preferences.botplay : false;
 
+    // Validamos si estamos en una partida multijugador en línea
+    const isMultiplayer = window.isMultiplayer || false;
+
     // LÓGICA DE BOTS INTELIGENTE
-    if (isTwoPlayers) {
+    if (isTwoPlayers || isMultiplayer) {
         this.enemyBot = false;
         this.playerBot = false;
     } else {

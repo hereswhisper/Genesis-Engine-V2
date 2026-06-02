@@ -10,9 +10,6 @@ const ConductorConstants = {
     DEFAULT_TIME_SIGNATURE_DEN: 4
 };
 
-/**
- * Estructura para los cambios de tiempo de la canción
- */
 class SongTimeChange {
     constructor(timeStamp = 0, bpm = 100, timeSignatureNum = 4, timeSignatureDen = 4) {
         this.timeStamp = timeStamp;
@@ -23,30 +20,25 @@ class SongTimeChange {
     }
 }
 
-/**
- * Clase principal que maneja los tiempos musicales del juego.
- * Adaptado de Flixel/Haxe a Phaser 3 / JS.
- */
 class ConductorEngine {
     constructor() {
-        // En Phaser, usamos EventEmitter en lugar de FlxSignal
         this.events = new Phaser.Events.EventEmitter();
-        
+
         this.timeChanges = [];
         this.currentTimeChange = null;
 
         this.songPosition = 0;
         this.songPositionDelta = 0;
-        
+
         this.prevTimestamp = 0;
         this.prevTime = 0;
-        
+
         this.bpmOverride = null;
 
         this.currentMeasure = 0;
         this.currentBeat = 0;
         this.currentStep = 0;
-        
+
         this.currentMeasureTime = 0;
         this.currentBeatTime = 0;
         this.currentStepTime = 0;
@@ -54,8 +46,6 @@ class ConductorEngine {
         this.instrumentalOffset = 0;
         this.formatOffset = 0;
     }
-
-    // --- GETTERS ---
 
     get bpm() {
         if (this.bpmOverride !== null) return this.bpmOverride;
@@ -98,7 +88,6 @@ class ConductorEngine {
     }
 
     get globalOffset() {
-        // Obtiene el offset del localStorage (sincronizado con Neutralino)
         return parseInt(localStorage.getItem('genesis_global_offset')) || 0;
     }
 
@@ -106,9 +95,24 @@ class ConductorEngine {
         return parseInt(localStorage.getItem('genesis_av_offset')) || 0;
     }
 
-    get combinedOffset() {
-        return this.instrumentalOffset + this.formatOffset + this.globalOffset;
+    // --- FIX: NUEVA COMPENSACIÓN DINÁMICA DE RED ---
+    get networkOffset() {
+        if (!window.isMultiplayer) return 0;
+        let latency = window.NetworkLatency || 0;
+        let hostOffset = window.NetworkHostTimeOffset || 0;
+
+        // Si somos el cliente, ajustamos nuestro tiempo interno para coincidir con la autoridad del host
+        if (window.MultiplayerData && !window.MultiplayerData.isHost) {
+            return hostOffset;
+        }
+        return 0;
     }
+
+    get combinedOffset() {
+        // Se suma el offset de red calculado por el loop de sync
+        return this.instrumentalOffset + this.formatOffset + this.globalOffset + this.networkOffset;
+    }
+    // ----------------------------------------------
 
     get beatsPerMeasure() {
         return this.timeSignatureNumerator;
@@ -117,8 +121,6 @@ class ConductorEngine {
     get stepsPerMeasure() {
         return Math.floor(this.timeSignatureNumerator * ConductorConstants.STEPS_PER_BEAT);
     }
-
-    // --- MÉTODOS PÚBLICOS ---
 
     forceBPM(bpm = null) {
         if (bpm !== null) {
@@ -129,13 +131,8 @@ class ConductorEngine {
         this.bpmOverride = bpm;
     }
 
-    /**
-     * Mapea los eventos de cambio de tiempo de la canción (BPM changes)
-     */
     mapTimeChanges(songTimeChanges) {
         this.timeChanges = [];
-        
-        // Ordenamos por tiempo por si vienen desordenados
         songTimeChanges.sort((a, b) => a.timeStamp - b.timeStamp);
 
         for (let songTimeChange of songTimeChanges) {
@@ -161,14 +158,8 @@ class ConductorEngine {
         this.update(this.songPosition, false);
     }
 
-    /**
-     * Ciclo principal del conductor. Debe ser llamado en el `update()` de tu escena jugable.
-     * @param {number} songPos - La posición actual de la música en ms (ej. music.seek * 1000)
-     */
     update(songPos = 0, applyOffsets = true, forceDispatch = false) {
-        // En Phaser, le pasamos la posición de la música directamente a la función,
-        // esto evita acoplar el conductor a un objeto de audio específico globalmente.
-        let currentTime = songPos; 
+        let currentTime = songPos;
 
         if (applyOffsets) {
             currentTime += this.combinedOffset;
@@ -180,7 +171,6 @@ class ConductorEngine {
 
         this.songPosition = currentTime;
 
-        // Buscar el cambio de tiempo actual
         this.currentTimeChange = this.timeChanges[0];
         if (this.songPosition > 0.0 && this.timeChanges.length > 0) {
             for (let i = 0; i < this.timeChanges.length; i++) {
@@ -194,7 +184,7 @@ class ConductorEngine {
         if (!this.currentTimeChange && this.bpmOverride === null) {
             console.warn("CONDUCTOR: El array timeChanges está vacío.");
         } else if (this.currentTimeChange && this.songPosition > 0.0) {
-            
+
             let val = (this.currentTimeChange.beatTime * ConductorConstants.STEPS_PER_BEAT) + (this.songPosition - this.currentTimeChange.timeStamp) / this.stepLengthMs;
             this.currentStepTime = this.roundDecimal(val, 6);
             this.currentBeatTime = this.currentStepTime / ConductorConstants.STEPS_PER_BEAT;
@@ -204,7 +194,6 @@ class ConductorEngine {
             this.currentBeat = Math.floor(this.currentBeatTime);
             this.currentMeasure = Math.floor(this.currentMeasureTime);
         } else {
-            // Asumir un BPM constante igual al forzado o inicial
             this.currentStepTime = this.roundDecimal((this.songPosition / this.stepLengthMs), 4);
             this.currentBeatTime = this.currentStepTime / ConductorConstants.STEPS_PER_BEAT;
             this.currentMeasureTime = this.currentStepTime / this.stepsPerMeasure;
@@ -214,7 +203,6 @@ class ConductorEngine {
             this.currentMeasure = Math.floor(this.currentMeasureTime);
         }
 
-        // Emitir señales de Phaser si hubo un cambio
         if (this.currentStep !== oldStep || forceDispatch) {
             this.events.emit('stepHit', this.currentStep);
         }
@@ -233,8 +221,6 @@ class ConductorEngine {
             this.prevTimestamp = performance.now();
         }
     }
-
-    // --- CONVERSIONES Y UTILIDADES MATEMÁTICAS ---
 
     getTimeInMeasures(ms) {
         if (this.timeChanges.length === 0) {
@@ -264,7 +250,7 @@ class ConductorEngine {
         let remainingStepLengthMs = (((ConductorConstants.SECS_PER_MIN / lastTimeChange.bpm) * ConductorConstants.MS_PER_SEC) * (4 / lastTimeChange.timeSignatureDen)) / ConductorConstants.STEPS_PER_BEAT;
         let remainingStepsPerMeasure = lastTimeChange.timeSignatureNum * ConductorConstants.STEPS_PER_BEAT;
         let remainingFractionalMeasure = (ms - lastTimeChange.timeStamp) / remainingStepLengthMs / remainingStepsPerMeasure;
-        
+
         resultMeasureTime += remainingFractionalMeasure;
         return resultMeasureTime;
     }
@@ -301,7 +287,7 @@ class ConductorEngine {
 
     getTypeLengthAtMs(ms, type = "beat") {
         if (this.timeChanges.length === 0) return 0;
-        
+
         let wantedTimeChange = this.timeChanges[0];
         for (let timeChange of this.timeChanges) {
             if (ms >= timeChange.timeStamp) {
@@ -310,9 +296,9 @@ class ConductorEngine {
                 break;
             }
         }
-        
+
         let wantedBeatLengthMs = ((ConductorConstants.SECS_PER_MIN / wantedTimeChange.bpm) * ConductorConstants.MS_PER_SEC) * (4 / wantedTimeChange.timeSignatureDen);
-        
+
         switch (type.toLowerCase()) {
             case "measure":
             case "m":
@@ -334,6 +320,5 @@ class ConductorEngine {
     }
 }
 
-// Exportamos el Singleton de forma global
 window.SongTimeChange = SongTimeChange;
 window.Conductor = new ConductorEngine();

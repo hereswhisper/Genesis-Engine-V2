@@ -1,13 +1,13 @@
 /**
  * HMR Client para Neutralino + Phaser
  * Incluir en tu index.html ANTES de que arranque el juego:
- *   <script src="hmr-client.js"></script>
+ * <script src="hmr-client.js"></script>
  *
  * Supone:
- *  - Clases Phaser globales (sin import/export)
- *  - window.game contiene la instancia de Phaser.Game
- *  - Puerto WS igual al configurado en hmr-server.js
- *  - Neutralino.filesystem disponible
+ * - Clases Phaser globales (sin import/export)
+ * - window.game contiene la instancia de Phaser.Game
+ * - Puerto WS igual al configurado en hmr-server.js
+ * - Neutralino.filesystem disponible
  */
 
 (function () {
@@ -16,7 +16,7 @@
   // ─── Configuración ────────────────────────────────────────────────────────
 
   var HMR_PORT = 8082;
-  var RECONNECT_DELAY = 2000;
+  // var RECONNECT_DELAY = 2000; <- Eliminado ya que no habrá reintentos
 
   /**
    * true  → reinicia TODAS las escenas activas (menos las excluidas)
@@ -69,19 +69,19 @@
 
     ws.onclose = function () {
       console.warn(
-        "%c HMR %c Desconectado. Reintentando en " + RECONNECT_DELAY + "ms…",
+        "%c HMR %c Desconectado o servidor no encontrado. No se reintentará la conexión.",
         "background: #e65100; color: white;",
         "color: unset;",
       );
-      setTimeout(conectar, RECONNECT_DELAY);
+      // Se eliminó setTimeout(conectar, RECONNECT_DELAY); para evitar spam
     };
 
     ws.onerror = function (err) {
-      console.error(
-        "%c HMR %c Error WS:",
+      // Se redujo el impacto visual del error para no molestar si no hay servidor
+      console.log(
+        "%c HMR %c Error WS (esperable si el servidor HMR no está corriendo).",
         "background: #b71c1c; color: white;",
-        "color: unset;",
-        err,
+        "color: unset;"
       );
       ws.close();
     };
@@ -164,8 +164,6 @@
         }
 
         // 4. Parchear prototipos Y actualizar window[cls] con la clase nueva
-        //    Esto es clave: window[cls] debe apuntar a la clase nueva para que
-        //    cuando Phaser haga scene.remove() + scene.add() use la versión fresca.
         var actualizadas = [];
         clases.forEach(function (cls) {
           var ClaseNueva = window["__hmr_" + cls];
@@ -174,7 +172,6 @@
           var ClaseOriginal = window[cls];
 
           if (ClaseOriginal) {
-            // Copiar métodos de instancia al prototipo original
             Object.getOwnPropertyNames(ClaseNueva.prototype).forEach(
               function (m) {
                 if (m !== "constructor") {
@@ -182,7 +179,6 @@
                 }
               },
             );
-            // Copiar métodos estáticos
             Object.getOwnPropertyNames(ClaseNueva).forEach(function (p) {
               if (
                 ["length", "name", "prototype", "arguments", "caller"].indexOf(
@@ -192,8 +188,6 @@
                 ClaseOriginal[p] = ClaseNueva[p];
               }
             });
-            // Reemplazar la referencia global con la clase nueva
-            // para que scene.add() la registre fresca en Phaser
             window[cls] = ClaseNueva;
             actualizadas.push(cls);
           } else {
@@ -210,9 +204,7 @@
           "color: unset;",
         );
 
-        // 5. Reiniciar escena(s): remove + add + start
-        //    remove+add fuerza a Phaser a registrar la clase nueva en su
-        //    SceneManager, en vez de reusar la referencia guardada en el boot.
+        // 5. Reiniciar escena(s)
         reiniciarEscenas();
       })
       .catch(function (e) {
@@ -257,7 +249,6 @@
       return;
     }
 
-    // Filtrar excluidas
     var candidatas = activas.filter(function (escena) {
       var key = escena.scene.key;
       var excluida = ESCENAS_EXCLUIDAS.indexOf(key) !== -1;
@@ -281,11 +272,8 @@
 
     var aReiniciar = REINICIAR_TODAS_LAS_ESCENAS ? candidatas : [candidatas[0]];
 
-    // Capturar key + clase actual de window ANTES de tocar nada
     var infos = aReiniciar.map(function (escena) {
       var key = escena.scene.key;
-      // La clase actualizada ya está en window[key] gracias al paso 4
-      // Si la convención es window.PlayScene → key = 'PlayScene'
       var ClaseActual = window[key] || null;
       return { key: key, clase: ClaseActual };
     });
@@ -301,16 +289,12 @@
       "color: unset;",
     );
 
-    // Detener todas primero
     infos.forEach(function (info) {
       window.game.scene.stop(info.key);
     });
 
-    // Esperar a que Phaser termine el ciclo de destrucción
     setTimeout(function () {
       infos.forEach(function (info) {
-        // Si tenemos la clase actualizada, re-registrarla en Phaser
-        // para que use la nueva versión y no la que guardó en el boot
         if (info.clase) {
           try {
             window.game.scene.remove(info.key);

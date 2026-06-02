@@ -1,3 +1,5 @@
+// src/funkin/menu/free/FreeplayScene.js
+
 class FreeplayScene extends Phaser.Scene {
   constructor() {
     super({ key: "FreeplayScene" });
@@ -12,6 +14,17 @@ class FreeplayScene extends Phaser.Scene {
   }
 
   create() {
+    // --- FIX: LIMPIEZA FORZOSA DEL MULTIJUGADOR ---
+    window.isMultiplayer = false;
+    window.isMultiplayerWaiting = false;
+    window.NetworkLatency = 0;
+    window.NetworkHostTimeOffset = 0;
+    if (window.MultiplayerData) window.MultiplayerData.active = false;
+    if (window.Network && typeof window.Network.disconnect === 'function') {
+        window.Network.disconnect();
+    }
+    // ----------------------------------------------
+
     Alphabet.createAtlas(this);
 
     this.songsList = [];
@@ -55,7 +68,6 @@ class FreeplayScene extends Phaser.Scene {
         lineSpacing: 5,
       }).setOrigin(1, 0).setDepth(101).setScrollFactor(0);
 
-    // Botón de Back Táctil
     if (window.isMobile || window.isReactNative) {
         this.backBtn = this.add.text(15, 15, "< BACK", {
             fontFamily: "vcr, monospace",
@@ -85,7 +97,6 @@ class FreeplayScene extends Phaser.Scene {
       else if (deltaY < 0) this.changeSelection(-1);
     });
 
-    // SISTEMA DE SWIPE MÓVIL (Soporta Direcciones y Tap)
     let startX = 0, startY = 0;
     this.input.on("pointerdown", (pointer) => {
         startX = pointer.x;
@@ -98,18 +109,13 @@ class FreeplayScene extends Phaser.Scene {
       let diffX = pointer.x - startX;
       let diffY = pointer.y - startY;
 
-      // Evaluar si deslizamos más Horizontal que Vertical
       if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-          // Swipe Horizontal - Cambiar Dificultad
-          if (diffX < 0) this.changeDiff(1); // Swipe hacia la izquierda
-          else this.changeDiff(-1);          // Swipe hacia la derecha
+          if (diffX < 0) this.changeDiff(1);
+          else this.changeDiff(-1);
       } else {
-          // Swipe Vertical - Navegar Lista
           if (diffY < -30) this.changeSelection(1);
           else if (diffY > 30) this.changeSelection(-1);
           else if (Math.abs(diffY) < 10 && Math.abs(diffX) < 10) {
-              // Si no movió mucho el dedo, es un TAP
-              // Evitamos confirmar si tocó el botón de Back
               if (pointer.y > 60 || pointer.x > 150) {
                   this.confirmSelection();
               }
@@ -183,11 +189,9 @@ class FreeplayScene extends Phaser.Scene {
 
     if (this.globalDifficulties.length === 0) this.globalDifficulties = ["normal"];
 
-    // NUEVO: Intentar recuperar la dificultad previamente recordada
     let savedDiff = window.FreeplayState_rememberedDiff || "normal";
     this.currentDiffIndex = this.globalDifficulties.indexOf(savedDiff);
 
-    // Si la dificultad recordada no existe en la lista global actual, volvemos a "normal" o 0
     if (this.currentDiffIndex === -1) this.currentDiffIndex = this.globalDifficulties.indexOf("normal");
     if (this.currentDiffIndex === -1) this.currentDiffIndex = 0;
   }
@@ -318,7 +322,6 @@ class FreeplayScene extends Phaser.Scene {
     this.canInteract = false;
     this.sound.play("confirmMenu");
 
-    // PERSISTENCIA: Guardamos tanto la canción como la dificultad actual en la ventana global
     window.FreeplayState_rememberedIndex = this.selectedIndex;
     window.FreeplayState_rememberedDiff = this.globalDifficulties[this.currentDiffIndex];
 

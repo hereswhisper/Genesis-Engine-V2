@@ -73,21 +73,27 @@ class RatingLogic {
     onNoteHit(data) {
         if (!data || !data.rating) return;
 
-        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        const isMultiplayer = window.isMultiplayer || false;
+
+        // Auto-determinamos el rol en multiplayer
+        const playerEnemy = isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-        const isBotplay = window.Preferences ? window.Preferences.botplay : false; // <-- VARIABLE BOTPLAY
+        const isBotplay = window.Preferences ? window.Preferences.botplay : false;
+        const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
         const isOpponentNote = data.note && data.note.noteData && data.note.noteData.p === 'op';
         const isMainPlayerNote = playerEnemy ? isOpponentNote : !isOpponentNote;
 
-        // NUEVO: Si la nota es del jugador y el Botplay está activo, ocultamos el Rating
         if (isMainPlayerNote && isBotplay) return;
 
-        // Si no es multijugador y la nota no es del jugador, ignorar
-        if (!isMainPlayerNote && !isTwoPlayers) return;
+        // Si no es multi/2p y la nota no es del jugador, ignorar
+        if (!isMainPlayerNote && !isTwoPlayers && !isMultiplayer) return;
 
-        // Si es multijugador, la nota es del enemigo y la preferencia de mostrar está apagada, ignorar
-        if (!isMainPlayerNote && isTwoPlayers && window.Preferences && window.Preferences.showOpPopUp === false) {
+        // Si es multi/2p, la nota es del enemigo y elegimos ocultarla, ignorar
+        if (!isMainPlayerNote && (isTwoPlayers || isMultiplayer) && !showOpPopUp) {
             return;
         }
 
@@ -106,11 +112,14 @@ class RatingLogic {
             return;
         }
 
-        // --- CÁLCULO DE POSICIÓN ---
+        // --- CÁLCULO DE POSICIÓN INTELIGENTE ---
         let posX = 0;
         let posY = 0;
 
-        if (isTwoPlayers) {
+        // Regla: Pantalla dividida SOLO si es Multi/2P Y los popups del rival NO están ocultos
+        const useSplitScreen = (isTwoPlayers || isMultiplayer) && showOpPopUp;
+
+        if (useSplitScreen) {
             // INVERTIDO: Enemigo (P2) a la izquierda, Jugador (P1) a la derecha
             if (isOpponentNote) {
                 posX = this.scene.scale.width * 0.25; // 25% (Izquierda)
@@ -119,6 +128,7 @@ class RatingLogic {
             }
             posY = this.scene.scale.height * 0.50;
         } else {
+            // Regresar a coordenadas dinámicas basadas en los porcentajes del usuario
             const posPercent = (window.Preferences && window.Preferences.popUpPos)
                 ? window.Preferences.popUpPos
                 : [50, 42];

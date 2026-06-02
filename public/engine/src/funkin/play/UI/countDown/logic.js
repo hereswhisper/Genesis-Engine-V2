@@ -10,7 +10,17 @@ class CountDownLogic {
         this.renderer = new window.CountDownRenderer(this.scene, this.crochet);
         this.currentStep = 0;
 
-        this.start();
+        // Variable para permitir o bloquear el inicio del conteo.
+        // Por defecto es true. Otros archivos pueden cambiarla a false.
+        this.allowCountdown = true;
+
+        // Retrasamos el inicio 1 frame (0 delay) para dar tiempo a otros
+        // scripts o eventos de cambiar `allowCountdown` a false antes de que inicie.
+        this.scene.time.delayedCall(0, () => {
+            if (this.allowCountdown) {
+                this.start();
+            }
+        });
     }
 
     start() {
@@ -31,6 +41,15 @@ class CountDownLogic {
             console.log("[CountDown] Conteo finalizado. Arrancando canción.");
         }
         this.currentStep++;
+    }
+
+    // Método útil para que otros archivos arranquen el conteo manualmente
+    // una vez que sus eventos previos (ej. cinemáticas) hayan terminado.
+    startManual() {
+        if (!this.allowCountdown) {
+            this.allowCountdown = true;
+            this.start();
+        }
     }
 }
 

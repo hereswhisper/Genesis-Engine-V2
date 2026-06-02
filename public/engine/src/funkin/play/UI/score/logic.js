@@ -1,193 +1,170 @@
 // src/funkin/play/UI/score/logic.js
 
 class ScoreLogic {
-    static preload(scene) {}
-
     constructor(scene) {
         this.scene = scene;
+        this.scene.scoreLogic = this; // <- Para poder accesar la lógica y datos desde MultiLogic
 
-        // Variables de estadísticas
-        this.score = 0;
+        this.renderer = new window.ScoreRenderer(this.scene);
 
-        // --- ANIMACIÓN DEL SCORE ---
-        this.displayScore = 0; // El valor que se mostrará visualmente
-        this.scoreAnimSpeed = 15; // Velocidad de subida (entre más alto, más rápido)
+        this.statsP1 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0 };
+        this.statsP2 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0 };
 
-        this.misses = 0;
-        this.combo = 0;
-        this.maxCombo = 0;
+        this.isMultiplayer = window.isMultiplayer || false;
+        this.isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
 
-        // Variables para la precisión (Accuracy)
-        this.totalNotesHit = 0;
-        this.totalHitsWeight = 0;
+        this.playerEnemy = this.isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
 
-        // Clics por segundo (CPS)
-        this.clickTimestamps = [];
+        this.scene.events.on('noteHit', this.onNoteHit, this);
+        this.scene.events.on('noteMiss', this.onNoteMiss, this);
+        this.scene.events.on('ghostMiss', this.onGhostMiss, this);
 
-        window.Score = this;
-        this.renderer = new window.ScoreRenderer(this.scene, this);
-
-        // Identificador del jugador principal
-        const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-        this.mainPlayerId = playerEnemy ? "p2" : "p1";
-
-        // Escuchar eventos de teclado
-        this.onKeyDown = (e) => this.handleCPSInput(e);
-        window.addEventListener("keydown", this.onKeyDown);
-
-        // Escuchar eventos globales del juego
-        this.scene.events.on("noteHit", this.onNoteHit, this);
-        this.scene.events.on("noteMiss", this.onNoteMiss, this);
-        this.scene.events.on("ghostMiss", this.onGhostMiss, this);
-
-        this.scene.events.once("shutdown", this.shutdown, this);
+        this.updateScoreText();
     }
 
-    handleCPSInput(e) {
-        if (!window.Controls || e.repeat) return;
+    playMissSound() {
+        let rnd = Math.floor(Math.random() * 3) + 1;
+        let sndKey = `missnote${rnd}`;
 
-        const isNoteKey =
-            window.Controls.NOTE_UP(e) || window.Controls.NOTE_DOWN(e) ||
-            window.Controls.NOTE_LEFT(e) || window.Controls.NOTE_RIGHT(e) ||
-            window.Controls.P2_NOTE_UP(e) || window.Controls.P2_NOTE_DOWN(e) ||
-            window.Controls.P2_NOTE_LEFT(e) || window.Controls.P2_NOTE_RIGHT(e);
-
-        if (isNoteKey) {
-            this.clickTimestamps.push(performance.now());
+        if (this.scene.cache.audio.exists(sndKey)) {
+            this.scene.sound.play(sndKey, { volume: 0.5 });
+        } else if (this.scene.cache.audio.exists('miss')) {
+            this.scene.sound.play('miss', { volume: 0.5 });
         }
     }
 
-    onNoteHit(packet) {
-        let isMainPlayer = true;
-
-        if (packet && packet.playerId) {
-            isMainPlayer = (packet.playerId === this.mainPlayerId);
-        } else if (packet && packet.note && packet.note.noteData) {
-            const expectedP = this.mainPlayerId === "p2" ? "op" : "pl";
-            isMainPlayer = (packet.note.noteData.p === expectedP);
-        }
-
-        if (!isMainPlayer) return;
-
-        this.combo++;
-        if (this.combo > this.maxCombo) {
-            this.maxCombo = this.combo;
-        }
-
-        this.totalNotesHit++;
-
-        let points = 350;
-        if (packet && packet.scoreAdded !== undefined && !isNaN(packet.scoreAdded)) {
-            points = packet.scoreAdded;
-        } else if (packet && packet.score !== undefined && !isNaN(packet.score)) {
-            points = packet.score;
-        }
-        this.score += points;
-
-        let weight = 1.0;
-        const ratingName = (packet && packet.rating) ? packet.rating.toLowerCase() : 'sick';
-
-        switch (ratingName) {
-            case 'killer':
-            case 'perfect': weight = 1.0; break;
-            case 'sick':    weight = 1.0; break;
-            case 'good':    weight = 0.75; break;
-            case 'bad':     weight = 0.5; break;
-            case 'shit':    weight = 0.25; break;
-            default:        weight = 1.0; break;
-        }
-
-        this.totalHitsWeight += weight;
+    // --- FIX: MÉTODO PARA FORZAR LA SINCRONIZACIÓN EXACTA DEL ENEMIGO ---
+    syncOpponentStats(stats) {
+        if (!stats) return;
+        this.statsP2.score = stats.score;
+        this.statsP2.misses = stats.misses;
+        this.statsP2.sicks = stats.sicks;
+        this.statsP2.goods = stats.goods;
+        this.statsP2.bads = stats.bads;
+        this.statsP2.shits = stats.shits;
+        this.statsP2.totalHit = stats.totalHit;
+        this.statsP2.totalNotes = stats.totalNotes;
+        this.updateScoreText();
     }
 
-    onNoteMiss(packet) {
-        let isMainPlayer = true;
+    onNoteHit(data) {
+        if (!data) return;
+        const isOpponent = data.note && data.note.noteData && data.note.noteData.p === 'op';
+        const stats = isOpponent ? this.statsP2 : this.statsP1;
 
-        if (packet && packet.playerId) {
-            isMainPlayer = (packet.playerId === this.mainPlayerId);
-        } else if (packet && packet.note && packet.note.noteData) {
-            const expectedP = this.mainPlayerId === "p2" ? "op" : "pl";
-            isMainPlayer = (packet.note.noteData.p === expectedP);
+        // Si estamos en multijugador NO adivinamos el score del enemigo localmente,
+        // porque de lo contrario divergerá. Dejamos que "syncOpponentStats" lo actualice.
+        if (isOpponent && this.isMultiplayer) {
+            return;
         }
 
-        if (!isMainPlayer) return;
+        stats.score += data.score || 0;
+        stats.totalNotes += 1;
 
-        this.combo = 0;
-        this.misses++;
-        this.score -= 10;
-        this.totalNotesHit++;
-    }
-
-    onGhostMiss(packet) {
-        let isMainPlayer = true;
-
-        if (packet && packet.playerId) {
-            isMainPlayer = (packet.playerId === this.mainPlayerId);
-        } else if (packet && packet.isOpponent !== undefined) {
-            const expectedOpponent = this.mainPlayerId === "p2";
-            isMainPlayer = (packet.isOpponent === expectedOpponent);
+        if (data.rating) {
+            let r = data.rating.toLowerCase();
+            if (r === 'killer' || r === 'sick' || r === 'perfect') stats.sicks++;
+            else if (r === 'good') stats.goods++;
+            else if (r === 'bad') stats.bads++;
+            else if (r === 'shit') stats.shits++;
         }
 
-        if (!isMainPlayer) return;
-
-        this.combo = 0;
-        this.misses++;
-        this.score -= 10;
+        stats.totalHit += this.getRatingWeight(data.rating);
+        this.updateScoreText();
     }
 
-    getAccuracy() {
-        if (this.totalNotesHit === 0) return "0.00";
-        let acc = (this.totalHitsWeight / this.totalNotesHit) * 100;
-        if (isNaN(acc)) return "0.00";
-        return acc.toFixed(2);
+    onNoteMiss(data) {
+        const isOpponent = data.note && data.note.noteData && data.note.noteData.p === 'op';
+        const stats = isOpponent ? this.statsP2 : this.statsP1;
+
+        if (isOpponent && this.isMultiplayer) return;
+
+        stats.score -= 10;
+        stats.misses += 1;
+        stats.totalNotes += 1;
+        this.updateScoreText();
+
+        const isMainPlayerMiss = this.playerEnemy ? isOpponent : !isOpponent;
+        if (isMainPlayerMiss || this.isTwoPlayers || this.isMultiplayer) {
+            this.playMissSound();
+        }
     }
 
-    getRatingName() {
-        if (this.totalNotesHit === 0) return "?";
-        const acc = parseFloat(this.getAccuracy());
+    onGhostMiss(data) {
+        const isOpponent = data.isOpponent;
+        const stats = isOpponent ? this.statsP2 : this.statsP1;
 
-        if (isNaN(acc)) return "?";
+        if (isOpponent && this.isMultiplayer) return;
 
-        if (acc === 100) return "SFC";
-        if (acc >= 90) return "Sick!";
-        if (acc >= 80) return "Good";
-        if (acc >= 70) return "Meh";
-        if (acc >= 60) return "Bad";
-        return "Shit";
+        stats.score -= 10;
+        stats.misses += 1;
+        this.updateScoreText();
+
+        const isMainPlayerMiss = this.playerEnemy ? isOpponent : !isOpponent;
+        if (isMainPlayerMiss || this.isTwoPlayers || this.isMultiplayer) {
+            this.playMissSound();
+        }
     }
 
-    getCPS() {
-        const now = performance.now();
-        this.clickTimestamps = this.clickTimestamps.filter(t => now - t < 1000);
-        return this.clickTimestamps.length;
+    getRatingWeight(rating) {
+        if (!rating) return 0;
+        switch(rating.toLowerCase()) {
+            case 'perfect': return 1;
+            case 'killer': return 1;
+            case 'sick': return 1;
+            case 'good': return 0.7;
+            case 'bad': return 0.4;
+            case 'shit': return 0.2;
+            default: return 0;
+        }
     }
 
-    update(time, delta) {
-        // LÓGICA DE ANIMACIÓN DEL SCORE (Interpolar displayScore al Score Real)
-        if (this.displayScore !== this.score) {
-            this.displayScore += (this.score - this.displayScore) * (this.scoreAnimSpeed * (delta / 1000));
+    calculateAccuracy(stats) {
+        if (stats.totalNotes === 0) return "0.00";
+        return ((stats.totalHit / stats.totalNotes) * 100).toFixed(2);
+    }
 
-            // Para asegurar que no quede en decimales infinitos saltando, le hacemos un snap final
-            if (Math.abs(this.score - this.displayScore) < 0.5) {
-                this.displayScore = this.score;
+    getRatingName(acc) {
+        if (acc === 100) return 'SFC';
+        if (acc >= 90) return 'GFC';
+        if (acc >= 80) return 'FC';
+        if (acc >= 70) return 'SDCB';
+        return 'Clear';
+    }
+
+    updateScoreText() {
+        if (!this.renderer) return;
+
+        const showOp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
+
+        const accP1 = this.calculateAccuracy(this.statsP1);
+        const rankP1 = this.getRatingName(parseFloat(accP1));
+        const textP1 = `Score: ${this.statsP1.score} | Misses: ${this.statsP1.misses} | Accuracy: ${accP1}% [${rankP1}]`;
+
+        const accP2 = this.calculateAccuracy(this.statsP2);
+        const rankP2 = this.getRatingName(parseFloat(accP2));
+        const textP2 = `Score: ${this.statsP2.score} | Misses: ${this.statsP2.misses} | Accuracy: ${accP2}% [${rankP2}]`;
+
+        if ((this.isTwoPlayers || this.isMultiplayer) && showOp) {
+            this.renderer.updateSplit(textP1, textP2);
+        } else {
+            if (this.playerEnemy) {
+                this.renderer.updateSingle(textP2);
+            } else {
+                this.renderer.updateSingle(textP1);
             }
         }
-
-        if (this.renderer && typeof this.renderer.update === 'function') {
-            this.renderer.update(time, delta);
-        }
     }
+
+    update(time, delta) {}
 
     shutdown() {
-        window.removeEventListener("keydown", this.onKeyDown);
-        this.scene.events.off("noteHit", this.onNoteHit, this);
-        this.scene.events.off("noteMiss", this.onNoteMiss, this);
-        this.scene.events.off("ghostMiss", this.onGhostMiss, this);
-
-        if (this.renderer && typeof this.renderer.destroy === 'function') {
-            this.renderer.destroy();
-        }
+        this.scene.events.off('noteHit', this.onNoteHit, this);
+        this.scene.events.off('noteMiss', this.onNoteMiss, this);
+        this.scene.events.off('ghostMiss', this.onGhostMiss, this);
+        if (this.renderer) this.renderer.destroy();
     }
 }
-
 window.ScoreLogic = ScoreLogic;

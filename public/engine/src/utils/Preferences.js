@@ -6,7 +6,7 @@ class Preferences {
     static ghostTapping = false;
     static downscroll = false;
     static middleScroll = 'none'; // none, mini & split
-    static botplay = true;
+    static botplay = false;
     static twoPlayers = false;
     static noteSplashes = true;
     static opponentGlow = true;
@@ -18,7 +18,7 @@ class Preferences {
     static showOpPopUp = true;
 
     // NUEVA PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
-    static strumBackgroundOpacity = 1.0;
+    static strumBackgroundOpacity = 0.0;
 
     // NUEVAS PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
     static muteMissNote = false;

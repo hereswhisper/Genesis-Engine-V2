@@ -88,6 +88,10 @@
   "src/funkin/play/UI/score/logic.js",
   "src/funkin/play/UI/score/renderer.js",
 
+  "src/funkin/play/referee/waiting.js",
+  "src/funkin/play/UI/multi/logic.js",
+  "src/funkin/play/UI/multi/renderer.js",
+
   // intro
   "src/funkin/menu/intro/text.js",
   "src/funkin/menu/intro/funScript.js",
@@ -97,5 +101,8 @@
   "src/funkin/menu/main/menu.js",
 
   // free
-  "src/funkin/menu/free/FreeplayScene.js"
+  "src/funkin/menu/free/FreeplayScene.js",
+
+  // multiplayer
+  "src/funkin/menu/multiplayer/MultiplayerScene.js"
 ]

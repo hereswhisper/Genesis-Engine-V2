@@ -13,9 +13,16 @@ class StrumlineLogic {
     this.ghostTapping = window.Preferences.ghostTapping;
     this.downscroll = window.Preferences.downscroll;
 
-    const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+    // CORRECCIÓN: Asignación estricta para Host = false, Cliente = true
+    if (window.isMultiplayer && window.MultiplayerData) {
+        this.playerEnemy = !window.MultiplayerData.isHost;
+        this.twoPlayers = false;
+    } else {
+        this.playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+        this.twoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+    }
 
-    if (isTwoPlayers) {
+    if (this.twoPlayers) {
         this.middleScroll = 'none';
     } else {
         this.middleScroll = window.Preferences.middleScroll;
@@ -33,6 +40,13 @@ class StrumlineLogic {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
 
+    this.onNetworkData = (data) => {
+        if (data && data.type === 'KEY_ACTION') {
+            this.processInput(data.dir, data.isDown, data.side, true, data.songTime, data.ghostTapping);
+        }
+    };
+    this.scene.events.on('receiveMultiplayerData', this.onNetworkData);
+
     this.scene.events.once("shutdown", this.shutdown, this);
   }
 
@@ -43,16 +57,13 @@ class StrumlineLogic {
 
     const positioner = new window.ClassicalPosition(this.scene);
 
-    const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-    const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-
     let hideOppStrums = false;
     let hideOppNotes = false;
     let hidePlyStrums = false;
     let hidePlyNotes = false;
 
-    if (!isTwoPlayers) {
-        if (playerEnemy) {
+    if (!this.twoPlayers) {
+        if (this.playerEnemy) {
             hidePlyStrums = window.Preferences.hideOpStrums;
             hidePlyNotes = window.Preferences.hideOpNotes;
         } else {
@@ -61,26 +72,18 @@ class StrumlineLogic {
         }
     }
 
-    // LÓGICA CORREGIDA:
-    // Por defecto, cada quien en su lado.
     let posIsPlayerForOpp = false;
     let posIsPlayerForPly = true;
 
-    // SOLO si hay un modo de middlescroll activo Y playerEnemy es true,
-    // le damos al enemigo la posición central (PlayerForOpp = true).
-    if (playerEnemy && this.middleScroll !== 'none') {
+    if (this.playerEnemy && this.middleScroll !== 'none') {
         posIsPlayerForOpp = true;
         posIsPlayerForPly = false;
     }
 
-    // --- CONFIGURACIÓN DE FONDOS ---
-    const bgOpacity = window.Preferences && window.Preferences.strumBackgroundOpacity !== undefined
-        ? window.Preferences.strumBackgroundOpacity
-        : 0;
+    const bgOpacity = window.Preferences && window.Preferences.strumBackgroundOpacity !== undefined ? window.Preferences.strumBackgroundOpacity : 0;
     const screenHeight = this.scene.sys.game.config.height || 720;
     const bgOffsetX = 25;
 
-    // Determinar quién recibe fondos
     let drawPlyBg = false;
     let drawOppBg = false;
 
@@ -88,11 +91,11 @@ class StrumlineLogic {
         drawPlyBg = !hidePlyStrums;
         drawOppBg = !hideOppStrums;
     } else {
-        if (playerEnemy) {
-            drawOppBg = !hideOppStrums; // El enemigo se centra y recibe fondo
+        if (this.playerEnemy) {
+            drawOppBg = !hideOppStrums;
             drawPlyBg = false;
         } else {
-            drawPlyBg = !hidePlyStrums; // El jugador se centra y recibe fondo
+            drawPlyBg = !hidePlyStrums;
             drawOppBg = false;
         }
     }
@@ -103,33 +106,21 @@ class StrumlineLogic {
         if (drawPlyBg) {
             const firstPly = positioner.getPos(0, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
             const lastPly = positioner.getPos(lastIdx, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
-
             const centerX = (firstPly.x + lastPly.x) / 2;
             const totalWidth = Math.abs(lastPly.x - firstPly.x) + baseSpacing + 10;
-
             let bgPly = this.scene.add.rectangle(centerX + bgOffsetX, 0, totalWidth, screenHeight, 0x000000);
-            bgPly.setOrigin(0.5, 0);
-            bgPly.setAlpha(bgOpacity);
-            bgPly.setDepth(-100);
-            if (this.scene.referee.cameras) {
-                this.scene.referee.cameras.add(bgPly, "ui");
-            }
+            bgPly.setOrigin(0.5, 0).setAlpha(bgOpacity).setDepth(-100);
+            if (this.scene.referee.cameras) this.scene.referee.cameras.add(bgPly, "ui");
         }
 
         if (drawOppBg) {
             const firstOpp = positioner.getPos(0, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
             const lastOpp = positioner.getPos(lastIdx, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
-
             const centerX = (firstOpp.x + lastOpp.x) / 2;
             const totalWidth = Math.abs(lastOpp.x - firstOpp.x) + baseSpacing + 10;
-
             let bgOpp = this.scene.add.rectangle(centerX + bgOffsetX, 0, totalWidth, screenHeight, 0x000000);
-            bgOpp.setOrigin(0.5, 0);
-            bgOpp.setAlpha(bgOpacity);
-            bgOpp.setDepth(-100);
-            if (this.scene.referee.cameras) {
-                this.scene.referee.cameras.add(bgOpp, "ui");
-            }
+            bgOpp.setOrigin(0.5, 0).setAlpha(bgOpacity).setDepth(-100);
+            if (this.scene.referee.cameras) this.scene.referee.cameras.add(bgOpp, "ui");
         }
     }
 
@@ -149,9 +140,7 @@ class StrumlineLogic {
       ply.noteAlpha = pPly.noteAlpha;
       ply.downscroll = pPly.downscroll;
 
-      if (this.mobileStrums) {
-          ply.createMobileHitbox(this.visibleHitboxes);
-      }
+      if (this.mobileStrums) ply.createMobileHitbox(this.visibleHitboxes);
 
       if (this.scene.referee.cameras) {
         this.scene.referee.cameras.add(opp, "ui");
@@ -165,10 +154,7 @@ class StrumlineLogic {
   handleInput(e, isDown) {
     if (e.repeat || !this.playerStrums || !this.playerStrums.scene) return;
 
-    const twoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-    const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-
-    this.dirs.forEach((dir, i) => {
+    this.dirs.forEach((dir) => {
         let isP1 = false;
         let isP2 = false;
 
@@ -178,8 +164,7 @@ class StrumlineLogic {
         if (e.keyCode !== undefined) {
             const bindsP1 = window.Controls.PCKeyBinds[actionP1] || [];
             const bindsP2 = window.Controls.PCKeyBinds[actionP2] || [];
-
-            if (twoPlayers) {
+            if (this.twoPlayers) {
                 if (bindsP1.length > 0 && e.keyCode === bindsP1[0]) isP1 = true;
                 if (bindsP2.length > 0 && e.keyCode === bindsP2[0]) isP2 = true;
             } else {
@@ -190,8 +175,7 @@ class StrumlineLogic {
             if (btnIndex !== undefined) {
                 const bindsP1 = window.Controls.GamepadBinds[actionP1] || [];
                 const bindsP2 = window.Controls.GamepadBinds[actionP2] || [];
-
-                if (twoPlayers) {
+                if (this.twoPlayers) {
                     if (bindsP1.length > 0 && btnIndex === bindsP1[0]) isP1 = true;
                     if (bindsP2.length > 0 && btnIndex === bindsP2[0]) isP2 = true;
                 } else {
@@ -200,34 +184,50 @@ class StrumlineLogic {
             }
         }
 
-        if (playerEnemy) {
+        if (this.playerEnemy) {
             if (isP1) this.processInput(dir, isDown, true);
-            if (isP2 && twoPlayers) this.processInput(dir, isDown, false);
+            if (isP2 && this.twoPlayers) this.processInput(dir, isDown, false);
         } else {
             if (isP1) this.processInput(dir, isDown, false);
-            if (isP2 && twoPlayers) this.processInput(dir, isDown, true);
+            if (isP2 && this.twoPlayers) this.processInput(dir, isDown, true);
         }
     });
   }
 
-  processInput(dir, isDown, isOpponent) {
-    const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
-    const isPlayerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-    const isBotPlayActive = window.Preferences ? window.Preferences.botplay : false;
+  processInput(dir, isDown, isOpponentSide, fromNetwork = false, networkTime = null, networkGhostTapping = null) {
+    const actionTime = networkTime !== null ? networkTime : window.Conductor.songPosition;
+    const currentGhostTapping = networkGhostTapping !== null ? networkGhostTapping : this.ghostTapping;
+
+    if (window.isMultiplayer && !fromNetwork) {
+        this.scene.events.emit('sendMultiplayerData', {
+            type: 'KEY_ACTION',
+            dir: dir,
+            isDown: isDown,
+            side: isOpponentSide,
+            songTime: actionTime,
+            ghostTapping: currentGhostTapping
+        });
+    }
 
     let isBottingThisSide = false;
 
-    if (!isTwoPlayers) {
-        if (isOpponent) {
-            isBottingThisSide = isPlayerEnemy ? isBotPlayActive : true;
+    if (window.isMultiplayer) {
+        if (this.playerEnemy) {
+            isBottingThisSide = isOpponentSide ? (window.Preferences ? window.Preferences.botplay : false) : false;
         } else {
-            isBottingThisSide = isPlayerEnemy ? true : isBotPlayActive;
+            isBottingThisSide = (!isOpponentSide) ? (window.Preferences ? window.Preferences.botplay : false) : false;
+        }
+    } else if (!this.twoPlayers) {
+        if (isOpponentSide) {
+            isBottingThisSide = this.playerEnemy ? (window.Preferences ? window.Preferences.botplay : false) : true;
+        } else {
+            isBottingThisSide = this.playerEnemy ? true : (window.Preferences ? window.Preferences.botplay : false);
         }
     }
 
-    if (isBottingThisSide) return;
+    if (isBottingThisSide && !fromNetwork) return;
 
-    const strumsGroup = isOpponent ? this.opponentStrums : this.playerStrums;
+    const strumsGroup = isOpponentSide ? this.opponentStrums : this.playerStrums;
     if (!strumsGroup) return;
 
     const strum = strumsGroup.getChildren().find((s) => s.direction === dir);
@@ -236,15 +236,15 @@ class StrumlineLogic {
     strum.isHeld = isDown;
 
     if (isDown) {
-        const note = this.findHitNote(dir, isOpponent);
+        const note = this.findHitNote(dir, isOpponentSide, actionTime);
 
         if (note) {
-            const diff = note.noteData.t - window.Conductor.songPosition;
+            const diff = note.noteData.t - actionTime;
             if (Math.abs(diff) <= window.Judgment.PBOT1_MISS_THRESHOLD) {
-                this.processHit(note, diff, strum, isOpponent);
+                this.processHit(note, diff, strum, isOpponentSide, actionTime, fromNetwork);
             } else {
-                if (!this.ghostTapping) {
-                    this.processGhostMiss(strum, isOpponent);
+                if (!currentGhostTapping) {
+                    this.processGhostMiss(strum, isOpponentSide, fromNetwork);
                 } else {
                     strum.playAnim("press");
                 }
@@ -252,15 +252,15 @@ class StrumlineLogic {
         } else {
             let holdingSustain = false;
             if (this.scene.referee.sustainLogic) {
-                const pType = isOpponent ? 'op' : 'pl';
+                const pType = isOpponentSide ? 'op' : 'pl';
                 holdingSustain = this.scene.referee.sustainLogic.activeSustains.some(s =>
                     s.direction === dir && s.noteData.p === pType && s.isBeingHeld && !s.missedNote
                 );
             }
 
             if (!holdingSustain) {
-                if (!this.ghostTapping) {
-                    this.processGhostMiss(strum, isOpponent);
+                if (!currentGhostTapping) {
+                    this.processGhostMiss(strum, isOpponentSide, fromNetwork);
                 } else {
                     strum.playAnim("press");
                 }
@@ -271,7 +271,7 @@ class StrumlineLogic {
     } else {
         strum.playAnim("static");
         if (this.scene.referee.sustainLogic) {
-            if (!isOpponent) {
+            if (!isOpponentSide) {
                 this.scene.referee.sustainLogic.onKeyRelease(dir);
             } else {
                 if(this.scene.referee.sustainLogic.onKeyReleaseOpponent) {
@@ -282,9 +282,8 @@ class StrumlineLogic {
     }
   }
 
-  findHitNote(direction, isOpponent) {
+  findHitNote(direction, isOpponent, timeOverride) {
     if (!this.scene.referee.notesLogic || !this.scene.referee.notesLogic.activeNotes) return null;
-
     const pType = isOpponent ? 'op' : 'pl';
 
     const notes = this.scene.referee.notesLogic.activeNotes
@@ -294,17 +293,16 @@ class StrumlineLogic {
     if (notes.length === 0) return null;
 
     return notes.sort((a, b) =>
-        Math.abs(a.noteData.t - window.Conductor.songPosition) -
-        Math.abs(b.noteData.t - window.Conductor.songPosition)
+        Math.abs(a.noteData.t - timeOverride) - Math.abs(b.noteData.t - timeOverride)
     )[0];
   }
 
-  processHit(note, diff, strum, isOpponent) {
+  processHit(note, diff, strum, isOpponentSide, actionTime, fromNetwork = false) {
     const rating = window.Judgment.getRating(diff);
     const score = window.Judgment.calculateScore(diff);
 
     if (window.Health) {
-        window.Health.applyHit(rating, isOpponent);
+        window.Health.applyHit(rating, isOpponentSide);
         window.Health.checkGameOver(this.scene);
     }
 
@@ -313,20 +311,22 @@ class StrumlineLogic {
         rating: rating,
         score: score,
         health: window.Health ? window.Health.currentHealth : 1.0,
-        playerId: isOpponent ? "p2" : "p1",
+        playerId: isOpponentSide ? "p2" : "p1",
+        isOpponent: isOpponentSide,
+        isPlayer: !isOpponentSide,
         action: "hit",
         timestamp: performance.now(),
-        songTime: window.Conductor.songPosition,
+        songTime: actionTime,
         direction: strum.direction,
         difference: diff,
         scoreAdded: score,
-        noteData: note.noteData
+        noteData: note.noteData,
+        isLocal: !fromNetwork
     };
 
     this.scene.events.emit("noteHit", packet);
 
-    const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-    const isMainPlayer = playerEnemy ? isOpponent : !isOpponent;
+    const isMainPlayer = this.playerEnemy ? isOpponentSide : !isOpponentSide;
     const isAI = !isMainPlayer;
     const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
 
@@ -341,23 +341,25 @@ class StrumlineLogic {
     note.destroy();
   }
 
-  processGhostMiss(strum, isOpponent) {
+  processGhostMiss(strum, isOpponentSide, fromNetwork = false) {
     strum.playAnim("press");
 
     if (window.Health) {
-        window.Health.applyGhostMiss(isOpponent);
+        window.Health.applyGhostMiss(isOpponentSide);
         window.Health.checkGameOver(this.scene);
     }
 
     const packet = {
         direction: strum.direction,
-        isOpponent: isOpponent,
+        isOpponent: isOpponentSide,
+        isPlayer: !isOpponentSide,
         health: window.Health ? window.Health.currentHealth : 1.0,
-        playerId: isOpponent ? "p2" : "p1",
+        playerId: isOpponentSide ? "p2" : "p1",
         action: "ghostMiss",
         timestamp: performance.now(),
         songTime: window.Conductor.songPosition,
-        isGhost: true
+        isGhost: true,
+        isLocal: !fromNetwork
     };
 
     this.scene.events.emit("ghostMiss", packet);
@@ -372,6 +374,9 @@ class StrumlineLogic {
   shutdown() {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
+    if (this.onNetworkData) {
+        this.scene.events.off('receiveMultiplayerData', this.onNetworkData);
+    }
   }
 }
 
