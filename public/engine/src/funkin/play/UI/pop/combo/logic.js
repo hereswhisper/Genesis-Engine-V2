@@ -51,9 +51,11 @@ class ComboLogic {
 
         this.onNoteHitListener = this.onNoteHit.bind(this);
         this.onNoteMissListener = this.onNoteMiss.bind(this);
+        this.onGhostMissListener = this.onGhostMiss.bind(this);
 
         this.scene.events.on('noteHit', this.onNoteHitListener);
         this.scene.events.on('noteMiss', this.onNoteMissListener);
+        this.scene.events.on('ghostMiss', this.onGhostMissListener);
     }
 
     spawnCombo(comboValue, isOpponent) {
@@ -174,6 +176,11 @@ class ComboLogic {
         }
     }
 
+    onGhostMiss(data) {
+        // Reutilizamos la lógica estricta de fallos
+        this.onNoteMiss(data);
+    }
+
     onNoteMiss(data) {
         const isMultiplayer = window.isMultiplayer || false;
 
@@ -185,7 +192,14 @@ class ComboLogic {
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
         const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
-        const isOpponentMiss = data && data.p === 'op';
+        // FIX: Evaluar de forma estricta a quién le pertenece el fallo (incluye caídas de hold notes)
+        let isOpponentMiss = false;
+        if (data && data.note && data.note.noteData) {
+            isOpponentMiss = data.note.noteData.p === 'op';
+        } else if (data && data.isOpponent !== undefined) {
+            isOpponentMiss = data.isOpponent;
+        }
+
         const isMainPlayerMiss = playerEnemy ? isOpponentMiss : !isOpponentMiss;
 
         if (isMainPlayerMiss && isBotplay) return;
@@ -214,6 +228,7 @@ class ComboLogic {
     shutdown() {
         this.scene.events.off('noteHit', this.onNoteHitListener);
         this.scene.events.off('noteMiss', this.onNoteMissListener);
+        this.scene.events.off('ghostMiss', this.onGhostMissListener);
     }
 }
 

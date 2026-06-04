@@ -5,81 +5,83 @@ class Wide {
   constructor() {
     this.baseHeight = 720;
     this.baseWidth = 1280;
-    this.currentWidth = 1280; // Guardamos el ancho actual internamente
+    this.currentWidth = 1280;
 
-    // Iniciamos la escucha de la instancia del juego
+    // Variables para prevenir el bucle infinito y el DOM Thrashing
+    this.lastDisplayWidth = 0;
+    this.lastDisplayHeight = 0;
+    this._isRefreshing = false;
+
     this.init();
   }
 
-  /**
-   * Espera a que la instancia global de Phaser esté lista para configurar el listener de resize.
-   * Uses JSDoc for technical documentation.
-   */
   init() {
-    if (!window.game || !window.game.scale) {
+    // Esperamos a que existan el juego, la escala y el elemento Canvas físico en el HTML
+    if (!window.game || !window.game.scale || !window.game.canvas) {
       requestAnimationFrame(() => this.init());
       return;
     }
 
-    // Listener para actualizaciones en tiempo real en la ventana
+    // Escuchamos el resize del navegador (cuando el usuario estira la ventana)
     window.addEventListener("resize", () => this.refresh());
 
-    // Aplicamos el tamaño inicial una vez detectado el motor
     this.refresh();
   }
 
-  /**
-   * Recalcula el ancho y actualiza el tamaño interno del juego en Phaser.
-   */
   refresh() {
-    if (!window.game || !window.game.scale) return;
+    // Si ya estamos calculando, o si el juego/canvas desaparecieron, abortamos (Seguro anti-bucles)
+    if (!window.game || !window.game.scale || !window.game.canvas || this._isRefreshing) return;
+    this._isRefreshing = true;
 
     const newWidth = this.calculatePanoramicWidth();
 
-    // Actualizamos la variable interna
-    this.currentWidth = newWidth;
+    // 1. RESOLUCIÓN INTERNA (Lógica)
+    if (this.currentWidth !== newWidth) {
+      this.currentWidth = newWidth;
+      window.game.scale.setGameSize(newWidth, this.baseHeight);
+      window.game.events.emit('canvasResized', newWidth, this.baseHeight);
+    }
 
-    // setGameSize cambia la resolución interna sin romper la proporción FIT.
-    // Esto se aplica de inmediato al canvas de Phaser, afectando en tiempo real
-    // a la escena actual y siendo heredado por cualquier escena activada posteriormente.
-    window.game.scale.setGameSize(newWidth, this.baseHeight);
+    // 2. TAMAÑO FÍSICO CSS (Pantalla Completa)
+    const scaleX = window.innerWidth / newWidth;
+    const scaleY = window.innerHeight / this.baseHeight;
+    const zoom = Math.min(scaleX, scaleY);
 
-    // Opcional: Emitimos un evento global por si alguna UI activa necesita re-calcular sus posiciones
-    window.game.events.emit('canvasResized', newWidth, this.baseHeight);
+    const displayWidth = Math.floor(newWidth * zoom);
+    const displayHeight = Math.floor(this.baseHeight * zoom);
+
+    // Solo actualizamos el CSS si el tamaño realmente cambió (Evita tirones)
+    if (this.lastDisplayWidth !== displayWidth || this.lastDisplayHeight !== displayHeight) {
+        this.lastDisplayWidth = displayWidth;
+        this.lastDisplayHeight = displayHeight;
+        
+        // --- CORRECCIÓN: Modificamos el Canvas de HTML directamente ---
+        window.game.canvas.style.width = displayWidth + "px";
+        window.game.canvas.style.height = displayHeight + "px";
+        
+        window.game.scale.refresh(); // Actualiza los hitboxes internos y centra en pantalla
+    }
+
+    // Liberamos el cerrojo
+    this._isRefreshing = false;
   }
 
-  /**
-   * Retorna el ancho panorámico actual del canvas.
-   * Útil para posicionar elementos de UI responsivamente en las escenas.
-   * @returns {number} El ancho calculado actual.
-   */
   getCurrentWidth() {
       return this.currentWidth;
   }
 
-  /**
-   * Calculates the ideal panoramic width based on the current window aspect ratio.
-   * @returns {number} The calculated width for the game.
-   */
   calculatePanoramicWidth() {
-    const isMobile = window.isReactNative || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (window.innerHeight === 0) return this.baseWidth;
 
     const windowRatio = window.innerWidth / window.innerHeight;
-    const baseRatio = this.baseWidth / this.baseHeight; // 16:9
+    
+    // Límites Anti-Deformación
+    const minRatio = 9 / 16;  // Vertical (Celulares)
+    const maxRatio = 21 / 9;  // Ultra-Wide (Monitores largos)
 
-    if (windowRatio > baseRatio) {
-      if (isMobile) {
-        // En móviles aprovechamos todo el ancho disponible
-        return Math.ceil(this.baseHeight * windowRatio);
-      } else {
-        // En PC limitamos el aspecto Ultra-Wide para evitar distorsiones extremas
-        const maxAspectRatio = 20 / 9;
-        const clampedRatio = Math.min(windowRatio, maxAspectRatio);
-        return Math.ceil(this.baseHeight * clampedRatio);
-      }
-    }
+    const clampedRatio = Math.max(minRatio, Math.min(windowRatio, maxRatio));
 
-    return this.baseWidth;
+    return Math.ceil(this.baseHeight * clampedRatio);
   }
 }
 

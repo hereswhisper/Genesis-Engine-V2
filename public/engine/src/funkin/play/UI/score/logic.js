@@ -7,12 +7,15 @@ class ScoreLogic {
 
         this.renderer = new window.ScoreRenderer(this.scene);
 
+        // statsP1 AHORA SIEMPRE representa al JUGADOR LOCAL
+        // statsP2 AHORA SIEMPRE representa al OPONENTE / JUGADOR DE RED
         this.statsP1 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0 };
         this.statsP2 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0 };
 
         this.isMultiplayer = window.isMultiplayer || false;
         this.isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
 
+        // Determina si el jugador local controla el lado izquierdo ('op')
         this.playerEnemy = this.isMultiplayer
             ? (window.MultiplayerData && !window.MultiplayerData.isHost)
             : (window.Preferences ? window.Preferences.playerEnemy : false);
@@ -35,7 +38,7 @@ class ScoreLogic {
         }
     }
 
-    // --- FIX: MÉTODO PARA FORZAR LA SINCRONIZACIÓN EXACTA DEL ENEMIGO ---
+    // Sincroniza EXACTAMENTE las stats del oponente que llegan por la red
     syncOpponentStats(stats) {
         if (!stats) return;
         this.statsP2.score = stats.score;
@@ -49,16 +52,41 @@ class ScoreLogic {
         this.updateScoreText();
     }
 
+    /**
+     * FIX: Método clave para separar la red del cliente local.
+     * Evalúa dinámicamente si la nota o evento le pertenece al jugador en la PC.
+     */
+    _isLocal(data) {
+        if (!data) return true; // Asumir local por defecto como fallback preventivo
+
+        let isOpSide = false;
+
+        // Intentamos deducir de qué lado proviene el evento
+        if (data.note && data.note.noteData) {
+            isOpSide = (data.note.noteData.p === 'op');
+        } else if (data.isOpponent !== undefined) {
+            isOpSide = data.isOpponent;
+        } else if (data.strumline) {
+            isOpSide = data.strumline.isOpponent;
+        }
+
+        // Si soy el cliente (playerEnemy = true), mi lado es 'op' (izquierdo).
+        // Si soy el host (playerEnemy = false), mi lado es 'bf' (derecho).
+        return this.playerEnemy ? isOpSide : !isOpSide;
+    }
+
     onNoteHit(data) {
         if (!data) return;
-        const isOpponent = data.note && data.note.noteData && data.note.noteData.p === 'op';
-        const stats = isOpponent ? this.statsP2 : this.statsP1;
 
-        // Si estamos en multijugador NO adivinamos el score del enemigo localmente,
-        // porque de lo contrario divergerá. Dejamos que "syncOpponentStats" lo actualice.
-        if (isOpponent && this.isMultiplayer) {
+        const isLocal = this._isLocal(data);
+
+        // En multijugador ignoramos CUALQUIER cálculo del oponente, 
+        // porque sus estadísticas exactas llegarán por syncOpponentStats()
+        if (!isLocal && this.isMultiplayer) {
             return;
         }
+
+        const stats = isLocal ? this.statsP1 : this.statsP2;
 
         stats.score += data.score || 0;
         stats.totalNotes += 1;
@@ -76,34 +104,36 @@ class ScoreLogic {
     }
 
     onNoteMiss(data) {
-        const isOpponent = data.note && data.note.noteData && data.note.noteData.p === 'op';
-        const stats = isOpponent ? this.statsP2 : this.statsP1;
+        const isLocal = this._isLocal(data);
 
-        if (isOpponent && this.isMultiplayer) return;
+        // Bloqueo total a simulaciones erróneas de red
+        if (!isLocal && this.isMultiplayer) return;
+
+        const stats = isLocal ? this.statsP1 : this.statsP2;
 
         stats.score -= 10;
         stats.misses += 1;
         stats.totalNotes += 1;
         this.updateScoreText();
 
-        const isMainPlayerMiss = this.playerEnemy ? isOpponent : !isOpponent;
-        if (isMainPlayerMiss || this.isTwoPlayers || this.isMultiplayer) {
+        if (isLocal || this.isTwoPlayers || this.isMultiplayer) {
             this.playMissSound();
         }
     }
 
     onGhostMiss(data) {
-        const isOpponent = data.isOpponent;
-        const stats = isOpponent ? this.statsP2 : this.statsP1;
+        const isLocal = this._isLocal(data);
 
-        if (isOpponent && this.isMultiplayer) return;
+        // Evita que los fallos vacíos o simulados del oponente te penalicen
+        if (!isLocal && this.isMultiplayer) return;
+
+        const stats = isLocal ? this.statsP1 : this.statsP2;
 
         stats.score -= 10;
         stats.misses += 1;
         this.updateScoreText();
 
-        const isMainPlayerMiss = this.playerEnemy ? isOpponent : !isOpponent;
-        if (isMainPlayerMiss || this.isTwoPlayers || this.isMultiplayer) {
+        if (isLocal || this.isTwoPlayers || this.isMultiplayer) {
             this.playMissSound();
         }
     }
@@ -148,13 +178,17 @@ class ScoreLogic {
         const textP2 = `Score: ${this.statsP2.score} | Misses: ${this.statsP2.misses} | Accuracy: ${accP2}% [${rankP2}]`;
 
         if ((this.isTwoPlayers || this.isMultiplayer) && showOp) {
-            this.renderer.updateSplit(textP1, textP2);
-        } else {
+            // Aseguramos mantener el formato visual correcto de la UI (Derecha / Izquierda)
             if (this.playerEnemy) {
-                this.renderer.updateSingle(textP2);
+                // El cliente juega como 'op'. Así que enviamos P2 como la UI base y P1 al lado opuesto.
+                this.renderer.updateSplit(textP2, textP1);
             } else {
-                this.renderer.updateSingle(textP1);
+                // El host juega normal. P1 va a su lugar por defecto.
+                this.renderer.updateSplit(textP1, textP2);
             }
+        } else {
+            // En un jugador, garantizamos que imprima SIEMPRE la puntuación local real
+            this.renderer.updateSingle(textP1);
         }
     }
 

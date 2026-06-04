@@ -36,13 +36,19 @@ class Note extends Phaser.GameObjects.Sprite {
             this.setFrame(firstFrame);
         }
 
-        this.baseOffsetX = this.strumTarget.baseX;
-        this.targetY = this.strumTarget.baseY;
+        // Posición lógica anclada al strum (sin offsets de skin)
+        this.baseX = this.strumTarget.baseX;
+        this.baseY = this.strumTarget.baseY;
 
+        // Variables exclusivas para el offset visual
+        this.visualOffsetX = 0;
+        this.visualOffsetY = 0;
+
+        // Aplicamos el offset de X [0] e Y [1] según la escala
         if (this.skinData.Offset) {
             const ratio = finalScale / jsonScale;
-            this.baseOffsetX += Number(this.skinData.Offset[0] || 0) * ratio;
-            this.targetY += Number(this.skinData.Offset[1] || 0) * ratio;
+            this.visualOffsetX = Number(this.skinData.Offset[0] || 0) * ratio;
+            this.visualOffsetY = Number(this.skinData.Offset[1] || 0) * ratio;
         }
 
         this.playAnim(animKey);
@@ -88,17 +94,19 @@ class Note extends Phaser.GameObjects.Sprite {
         const animOffY = this.strumTarget.animOffsetY || 0;
 
         // Desplazamiento dinámico del carril ignorando el offset visual de la animación
-        const deltaX = (this.strumTarget.x - animOffX) - this.strumTarget.baseX;
-        const deltaY = (this.strumTarget.y - animOffY) - this.strumTarget.baseY;
+        const deltaX = (this.strumTarget.x - animOffX) - this.baseX;
+        const deltaY = (this.strumTarget.y - animOffY) - this.baseY;
         const rot = this.strumTarget.rotation;
 
+        // Movimiento por el scroll en función del tiempo de la canción (no afecta los offsets)
         const dist = timeDiff * 0.45 * scrollSpeed * dir;
 
-        const offsetX = -dist * Math.sin(rot);
-        const offsetY = dist * Math.cos(rot);
+        const scrollOffsetX = -dist * Math.sin(rot);
+        const scrollOffsetY = dist * Math.cos(rot);
 
-        const currentX = this.baseOffsetX + deltaX + offsetX;
-        const currentY = this.targetY + deltaY + offsetY;
+        // Se calcula la posición sumando al final los offsets visuales (X y Y) extraídos de la skin
+        const currentX = this.baseX + deltaX + scrollOffsetX + this.visualOffsetX;
+        const currentY = this.baseY + deltaY + scrollOffsetY + this.visualOffsetY;
 
         this.setPosition(currentX, currentY);
         this.setRotation(rot);
