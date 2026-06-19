@@ -19,8 +19,15 @@ class NoteLogic {
         this.scrollSpeed = Number(this.scene.playData.get('scrollSpeed', 2.0));
     }
 
+    _isLocal(isOpponentSide) {
+        const isMultiplayer = window.isMultiplayer || false;
+        const playerEnemy = isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
+        return playerEnemy ? isOpponentSide : !isOpponentSide;
+    }
+
     update(time, delta) {
-        // NUEVO: Si estamos esperando jugador en multijugador, bloqueamos la generación de notas
         if (window.isMultiplayerWaiting) return;
 
         const songTime = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
@@ -40,18 +47,39 @@ class NoteLogic {
         if (!this.activeNotes || !this.activeNotes.scene) return;
 
         this.activeNotes.getChildren().forEach(note => {
-            note.updatePos(songTime, this.scrollSpeed);
+            const isOpponentSide = note.noteData.p === 'op';
+            const isLocalNote = this._isLocal(isOpponentSide);
 
-            const diff = songTime - note.noteData.t;
+            // FIX: Compensación Visual de Latencia para el Rival
+            let renderTime = songTime;
+            if (!isLocalNote && window.isMultiplayer) {
+                // Retrasamos la nota visualmente. Así, le damos tiempo al paquete
+                // de red de llegar justo cuando la nota toque la strumline visual.
+                renderTime -= (window.NetworkLatency || 0);
+            }
+
+            note.updatePos(renderTime, this.scrollSpeed);
+
+            // Evaluamos si falló la nota usando su tiempo visual compensado
+            const diff = renderTime - note.noteData.t;
             const strumDownscroll = note.strumTarget ? note.strumTarget.downscroll : false;
 
             if (!note.isMissed && diff > window.Judgment.PBOT1_MISS_THRESHOLD) {
 
-                const isOpponent = note.noteData.p === 'op';
+                if (!isLocalNote && window.isMultiplayer) {
+                    note.isMissed = true;
+                    note.setAlpha(0.3);
+                    
+                    const muteEnemy = window.Preferences ? window.Preferences.muteMissNoteEnemy : false;
+                    if (!muteEnemy && this.scene.scoreLogic) {
+                        this.scene.scoreLogic.playMissSound();
+                    }
 
-                // Usamos Health directamente
+                    return; 
+                }
+
                 if (window.Health) {
-                    window.Health.applyMiss(isOpponent);
+                    window.Health.applyMiss(isOpponentSide);
                     window.Health.checkGameOver(this.scene);
                 }
 

@@ -1,21 +1,26 @@
 // src/funkin/play/UI/score/logic.js
 
 class ScoreLogic {
+    // Formato estático solicitado para un solo jugador o uso de Renderers externos
+    static scoreFormat = ['score', 'rating', 'accuracy', 'misses', 'combo', 'maxCombo', 'cps'];
+
     constructor(scene) {
         this.scene = scene;
-        this.scene.scoreLogic = this; // <- Para poder accesar la lógica y datos desde MultiLogic
+        this.scene.scoreLogic = this;
 
         this.renderer = new window.ScoreRenderer(this.scene);
 
-        // statsP1 AHORA SIEMPRE representa al JUGADOR LOCAL
-        // statsP2 AHORA SIEMPRE representa al OPONENTE / JUGADOR DE RED
-        this.statsP1 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0 };
-        this.statsP2 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0 };
+        // Añadidas las métricas de combo, maxCombo y cps al estado oficial
+        this.statsP1 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0, combo: 0, maxCombo: 0, cps: 0 };
+        this.statsP2 = { score: 0, misses: 0, sicks: 0, goods: 0, bads: 0, shits: 0, totalHit: 0, totalNotes: 0, combo: 0, maxCombo: 0, cps: 0 };
+
+        // Arrays para calcular los Clicks Por Segundo (CPS)
+        this.clicksP1 = [];
+        this.clicksP2 = [];
 
         this.isMultiplayer = window.isMultiplayer || false;
         this.isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
 
-        // Determina si el jugador local controla el lado izquierdo ('op')
         this.playerEnemy = this.isMultiplayer
             ? (window.MultiplayerData && !window.MultiplayerData.isHost)
             : (window.Preferences ? window.Preferences.playerEnemy : false);
@@ -38,7 +43,28 @@ class ScoreLogic {
         }
     }
 
-    // Sincroniza EXACTAMENTE las stats del oponente que llegan por la red
+    // Calcula los CPS (limpiando los clicks que tengan más de 1000ms de antigüedad)
+    getCPS(isLocal) {
+        const now = Date.now();
+        if (isLocal) {
+            this.clicksP1 = this.clicksP1.filter(t => now - t < 1000);
+            return this.clicksP1.length;
+        } else {
+            this.clicksP2 = this.clicksP2.filter(t => now - t < 1000);
+            return this.clicksP2.length;
+        }
+    }
+
+    // Registra un evento de pulsación para el calculo del CPS
+    registerClick(isLocal) {
+        const now = Date.now();
+        if (isLocal) {
+            this.clicksP1.push(now);
+        } else {
+            this.clicksP2.push(now);
+        }
+    }
+
     syncOpponentStats(stats) {
         if (!stats) return;
         this.statsP2.score = stats.score;
@@ -49,19 +75,30 @@ class ScoreLogic {
         this.statsP2.shits = stats.shits;
         this.statsP2.totalHit = stats.totalHit;
         this.statsP2.totalNotes = stats.totalNotes;
+        this.statsP2.combo = stats.combo || 0;
+        this.statsP2.maxCombo = stats.maxCombo || 0;
+        this.statsP2.cps = stats.cps || 0;
+
+        // Sincronizar visualmente el Combo remoto
+        if (this.scene.comboLogic) {
+            let remoteComboVar = this.playerEnemy ? 'currentComboP1' : 'currentComboP2';
+            let oldCombo = this.scene.comboLogic[remoteComboVar];
+
+            this.scene.comboLogic[remoteComboVar] = this.statsP2.combo;
+
+            if (this.statsP2.combo === 0 && oldCombo > 0) {
+                let isOpponentSide = !this.playerEnemy;
+                this.scene.comboLogic.spawnCombo(0, isOpponentSide);
+            }
+        }
+
         this.updateScoreText();
     }
 
-    /**
-     * FIX: Método clave para separar la red del cliente local.
-     * Evalúa dinámicamente si la nota o evento le pertenece al jugador en la PC.
-     */
     _isLocal(data) {
-        if (!data) return true; // Asumir local por defecto como fallback preventivo
+        if (!data) return true;
 
         let isOpSide = false;
-
-        // Intentamos deducir de qué lado proviene el evento
         if (data.note && data.note.noteData) {
             isOpSide = (data.note.noteData.p === 'op');
         } else if (data.isOpponent !== undefined) {
@@ -70,26 +107,27 @@ class ScoreLogic {
             isOpSide = data.strumline.isOpponent;
         }
 
-        // Si soy el cliente (playerEnemy = true), mi lado es 'op' (izquierdo).
-        // Si soy el host (playerEnemy = false), mi lado es 'bf' (derecho).
         return this.playerEnemy ? isOpSide : !isOpSide;
     }
 
     onNoteHit(data) {
         if (!data) return;
-
         const isLocal = this._isLocal(data);
 
-        // En multijugador ignoramos CUALQUIER cálculo del oponente, 
-        // porque sus estadísticas exactas llegarán por syncOpponentStats()
-        if (!isLocal && this.isMultiplayer) {
-            return;
-        }
+        this.registerClick(isLocal); // Sumar presión de tecla para CPS
+
+        if (!isLocal && this.isMultiplayer) return;
 
         const stats = isLocal ? this.statsP1 : this.statsP2;
 
         stats.score += data.score || 0;
         stats.totalNotes += 1;
+        stats.combo += 1; // Actualizar Combo
+
+        // Evaluar Max Combo
+        if (stats.combo > stats.maxCombo) {
+            stats.maxCombo = stats.combo;
+        }
 
         if (data.rating) {
             let r = data.rating.toLowerCase();
@@ -105,15 +143,20 @@ class ScoreLogic {
 
     onNoteMiss(data) {
         const isLocal = this._isLocal(data);
-
-        // Bloqueo total a simulaciones erróneas de red
-        if (!isLocal && this.isMultiplayer) return;
+        
+        // Si entra por un evento general y el rival falla, respetamos muteMissNoteEnemy
+        if (!isLocal && this.isMultiplayer) {
+            const muteEnemy = window.Preferences ? window.Preferences.muteMissNoteEnemy : false;
+            if (!muteEnemy) this.playMissSound();
+            return;
+        }
 
         const stats = isLocal ? this.statsP1 : this.statsP2;
 
         stats.score -= 10;
         stats.misses += 1;
         stats.totalNotes += 1;
+        stats.combo = 0; // Romper Combo
         this.updateScoreText();
 
         if (isLocal || this.isTwoPlayers || this.isMultiplayer) {
@@ -124,13 +167,20 @@ class ScoreLogic {
     onGhostMiss(data) {
         const isLocal = this._isLocal(data);
 
-        // Evita que los fallos vacíos o simulados del oponente te penalicen
-        if (!isLocal && this.isMultiplayer) return;
+        this.registerClick(isLocal); // Un miss fantasma cuenta como click en CPS
+
+        // Escuchar el click fallido del rival online si no está silenciado
+        if (!isLocal && this.isMultiplayer) {
+            const muteEnemy = window.Preferences ? window.Preferences.muteMissNoteEnemy : false;
+            if (!muteEnemy) this.playMissSound();
+            return;
+        }
 
         const stats = isLocal ? this.statsP1 : this.statsP2;
 
         stats.score -= 10;
         stats.misses += 1;
+        stats.combo = 0; // Romper Combo
         this.updateScoreText();
 
         if (isLocal || this.isTwoPlayers || this.isMultiplayer) {
@@ -171,23 +221,23 @@ class ScoreLogic {
 
         const accP1 = this.calculateAccuracy(this.statsP1);
         const rankP1 = this.getRatingName(parseFloat(accP1));
-        const textP1 = `Score: ${this.statsP1.score} | Misses: ${this.statsP1.misses} | Accuracy: ${accP1}% [${rankP1}]`;
+        const cpsP1 = this.getCPS(true);
 
         const accP2 = this.calculateAccuracy(this.statsP2);
         const rankP2 = this.getRatingName(parseFloat(accP2));
-        const textP2 = `Score: ${this.statsP2.score} | Misses: ${this.statsP2.misses} | Accuracy: ${accP2}% [${rankP2}]`;
+        const cpsP2 = this.getCPS(false);
+
+        // Nuevo formato de texto basado en tu petición (añadiendo Combo, Max Combo y CPS)
+        const textP1 = `Score: ${this.statsP1.score} | Rating: ${rankP1} | Accuracy: ${accP1}% | Misses: ${this.statsP1.misses} | Combo: ${this.statsP1.combo} | Max Combo: ${this.statsP1.maxCombo} | CPS: ${cpsP1}`;
+        const textP2 = `Score: ${this.statsP2.score} | Rating: ${rankP2} | Accuracy: ${accP2}% | Misses: ${this.statsP2.misses} | Combo: ${this.statsP2.combo} | Max Combo: ${this.statsP2.maxCombo} | CPS: ${cpsP2}`;
 
         if ((this.isTwoPlayers || this.isMultiplayer) && showOp) {
-            // Aseguramos mantener el formato visual correcto de la UI (Derecha / Izquierda)
             if (this.playerEnemy) {
-                // El cliente juega como 'op'. Así que enviamos P2 como la UI base y P1 al lado opuesto.
                 this.renderer.updateSplit(textP2, textP1);
             } else {
-                // El host juega normal. P1 va a su lugar por defecto.
                 this.renderer.updateSplit(textP1, textP2);
             }
         } else {
-            // En un jugador, garantizamos que imprima SIEMPRE la puntuación local real
             this.renderer.updateSingle(textP1);
         }
     }

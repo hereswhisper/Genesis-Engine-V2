@@ -1,6 +1,5 @@
-/**
- * Constantes musicales base
- */
+// src/utils/Conductor.js
+
 const ConductorConstants = {
     SECS_PER_MIN: 60,
     MS_PER_SEC: 1000,
@@ -95,24 +94,15 @@ class ConductorEngine {
         return parseInt(localStorage.getItem('genesis_av_offset')) || 0;
     }
 
-    // --- FIX: NUEVA COMPENSACIÓN DINÁMICA DE RED ---
     get networkOffset() {
-        if (!window.isMultiplayer) return 0;
-        let latency = window.NetworkLatency || 0;
-        let hostOffset = window.NetworkHostTimeOffset || 0;
-
-        // Si somos el cliente, ajustamos nuestro tiempo interno para coincidir con la autoridad del host
-        if (window.MultiplayerData && !window.MultiplayerData.isHost) {
-            return hostOffset;
-        }
+        // FIX: La compensación es puramente visual ahora. Retornamos 0 
+        // para que las notas locales sigan exactamente el ritmo de la música.
         return 0;
     }
 
     get combinedOffset() {
-        // Se suma el offset de red calculado por el loop de sync
         return this.instrumentalOffset + this.formatOffset + this.globalOffset + this.networkOffset;
     }
-    // ----------------------------------------------
 
     get beatsPerMeasure() {
         return this.timeSignatureNumerator;

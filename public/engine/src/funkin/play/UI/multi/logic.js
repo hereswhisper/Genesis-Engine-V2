@@ -43,52 +43,83 @@ class MultiLogic {
 
     setupConnection() {
         this.conn.on('open', () => {
-            this.renderer.setText("¡JUGADOR ENCONTRADO!\nPREPARATE...");
+            this.renderer.setText("¡JUGADOR ENCONTRADO!\nCALIBRANDO CONEXIÓN...");
             window.MultiplayerConnection = this.conn;
 
+            this.syncData = { pings: [] };
+
+            if (window.MultiplayerData.isHost) {
+                // El Host inicia el algoritmo de calibración tras una breve pausa de estabilización
+                setTimeout(() => { this.sendPing(); }, 250);
+            }
+
             this.conn.on('data', (data) => {
-                // --- FIX: SISTEMA DE LATENCIA Y SINCRONIZACIÓN ---
-
-                // 1. Calculo del Ping/Pong
+                // --- FASE 1: CALIBRACIÓN NTP PREVIA ---
                 if (data.type === 'ping') {
-                    this.conn.send({ type: 'pong', time: data.time });
-                    return;
-                }
-                if (data.type === 'pong') {
-                    window.NetworkLatency = (Date.now() - data.time) / 2;
+                    this.conn.send({ type: 'pong', t0: data.t0, t1: Date.now() });
                     return;
                 }
 
-                // 2. Sincronización oficial de Estado (Vida, Score, Tiempo)
+                if (data.type === 'pong') {
+                    let t3 = Date.now();
+                    let rtt = t3 - data.t0; // Tiempo de ida y vuelta
+                    let latency = rtt / 2;
+                    // Cálculo de Offset: Diferencia matemática entre el reloj del Host y el Cliente
+                    let offset = data.t1 - (data.t0 + latency); 
+                    let originalOffset = data.t1 - data.t0;
+
+                    this.syncData.pings.push({ latency, offset, originalOffset });
+
+                    // Enviamos 10 pings para calcular una mediana estable y descartar lagazos aislados
+                    if (this.syncData.pings.length < 10) {
+                        setTimeout(() => this.sendPing(), 50);
+                    } else {
+                        this.calculateSync();
+                    }
+                    return;
+                }
+
+                if (data.type === 'prepare_start') {
+                    // FASE 2: PREPARACIÓN EXACTA PARA EL ARRANQUE (Cliente recibe orden)
+                    window.NetworkLatency = data.latency;
+                    window.NetworkClockOffset = data.clientClockOffset;
+
+                    this.printNetworkTable(data.medianData, window.NetworkClockOffset);
+                    this.renderer.setText("¡CONEXIÓN ESTABLECIDA!\nPREPÁRATE...");
+
+                    // Calcular la diferencia local contra el Timestamp global del Host
+                    let localStartTime = data.startTime - window.NetworkClockOffset;
+                    let timeToWait = localStartTime - Date.now();
+
+                    if (timeToWait < 0) timeToWait = 0;
+
+                    // El cliente arranca en el milisegundo exacto calculado
+                    this.scene.time.delayedCall(timeToWait, () => {
+                        this.startActualGame();
+                    });
+                    return;
+                }
+
+                // --- FASE 3: JUEGO EN CURSO ---
                 if (data.type === 'sync') {
-                    // Sincronizar puntuación del oponente si la recibimos
+                    // Sincronizar puntuación
                     if (data.stats && this.scene.scoreLogic) {
                         this.scene.scoreLogic.syncOpponentStats(data.stats);
                     }
 
-                    // Sincronizar barra de Vida (Host Authority)
+                    // Sincronizar barra de Vida (Autoridad del Host) con suavizado ligero
                     if (data.isHost && data.health !== undefined && window.Health) {
-                        // Solo ajustamos si el desfase es notable, para evitar vibraciones en la barra
-                        if (Math.abs(window.Health.health - data.health) > 0.03) {
-                            window.Health.health = data.health;
+                        if (Math.abs(window.Health.health - data.health) > 0.05) {
+                            window.Health.health = window.Health.health * 0.9 + data.health * 0.1;
                         }
                     }
-
-                    // Sincronizar Tiempos de Música (Compensar desincronización)
-                    if (data.isHost && data.songPos !== undefined && window.Conductor && !window.MultiplayerData.isHost) {
-                        // Estimar en que tiempo está el host ahora (considerando lo que tardó el paquete)
-                        let hostEstimatedTime = data.songPos + (window.NetworkLatency || 0);
-                        let timeDiff = hostEstimatedTime - window.Conductor.songPosition;
-
-                        // Si hay un desfase de más de 40ms, corregimos suavemente
-                        if (Math.abs(timeDiff) > 40) {
-                            window.NetworkHostTimeOffset = (window.NetworkHostTimeOffset || 0) * 0.8 + (timeDiff * 0.2);
-                        }
-                    }
+                    
+                    // NOTA: Se eliminó la forzada sobre window.Conductor.songPosition. 
+                    // Al iniciar exactamente al mismo tiempo, el reproductor de audio local es ahora la autoridad fluida, evitando teletransportes de notas.
                     return;
                 }
 
-                // Información estándar (Input Strumlines)
+                // Información estándar (Inputs de flechas del oponente)
                 this.scene.events.emit('receiveMultiplayerData', data);
             });
 
@@ -96,44 +127,9 @@ class MultiLogic {
                 console.log("[Multiplayer] Conexión perdida con el otro jugador.");
             });
 
-            this.scene.time.delayedCall(2000, () => {
-                this.renderer.setVisible(false);
-
-                window.isMultiplayerWaiting = false;
-                window.startCountdown = true;
-
-                if (this.scene.referee && this.scene.referee.countdown) {
-                    this.scene.referee.countdown.startManual();
-                }
-
-                this.scene.events.emit('startMultiplayerCountdown');
-
-                // --- FIX: INICIAR BUCLE DE SINCRONIZACIÓN AUTOMÁTICO ---
-                this.syncEvent = this.scene.time.addEvent({
-                    delay: 200, // Enviar paquete cada 200ms
-                    loop: true,
-                    callback: () => {
-                        if (!this.conn || !this.conn.open) return;
-
-                        // Pedir Ping para medir la latencia
-                        this.conn.send({ type: 'ping', time: Date.now() });
-
-                        // Enviar nuestra data oficial al oponente
-                        let syncData = {
-                            type: 'sync',
-                            isHost: window.MultiplayerData.isHost,
-                            stats: this.scene.scoreLogic ? this.scene.scoreLogic.statsP1 : null,
-                            health: window.Health ? window.Health.health : 1,
-                            songPos: window.Conductor ? window.Conductor.songPosition : 0
-                        };
-                        this.conn.send(syncData);
-                    }
-                });
+            this.conn.on('error', (err) => {
+                this.renderer.setText(`ERROR DE CONEXIÓN.\n\nPRESIONA ESCAPE.`);
             });
-        });
-
-        this.conn.on('error', (err) => {
-            this.renderer.setText(`ERROR DE CONEXIÓN.\n\nPRESIONA ESCAPE.`);
         });
 
         this.sendListener = (data) => {
@@ -142,6 +138,88 @@ class MultiLogic {
             }
         };
         this.scene.events.on('sendMultiplayerData', this.sendListener);
+    }
+
+    sendPing() {
+        this.conn.send({ type: 'ping', t0: Date.now() });
+    }
+
+    calculateSync() {
+        // Ordenamos las pruebas por latencia y tomamos la mediana para ignorar tirones de red
+        this.syncData.pings.sort((a, b) => a.latency - b.latency);
+        let medianData = this.syncData.pings[Math.floor(this.syncData.pings.length / 2)];
+
+        window.NetworkLatency = medianData.latency;
+        window.NetworkClockOffset = 0; // Para el host es 0
+
+        // Invertimos el offset para que el Cliente se ajuste al Host
+        let clientClockOffset = -medianData.offset;
+
+        this.printNetworkTable(medianData, clientClockOffset);
+        this.renderer.setText("¡CONEXIÓN ESTABLECIDA!\nPREPÁRATE...");
+
+        // Programar el inicio simultáneo exacto (3 segundos en el futuro)
+        let startDelay = 3000;
+        let hostStartTime = Date.now() + startDelay;
+
+        this.conn.send({
+            type: 'prepare_start',
+            startTime: hostStartTime,
+            clientClockOffset: clientClockOffset,
+            latency: window.NetworkLatency,
+            medianData: medianData
+        });
+
+        // El Host arranca basándose en su propio cronómetro
+        this.scene.time.delayedCall(startDelay, () => {
+            this.startActualGame();
+        });
+    }
+
+    printNetworkTable(medianData, clientClockOffset) {
+        let isHost = window.MultiplayerData.isHost;
+        let originalOffset = medianData.originalOffset || 0;
+
+        console.groupCollapsed("%c[MULTIJUGADOR] Detalles de Conexión (Calibración de Ping)", "background: #222; color: #bada55; font-size: 14px;");
+        console.table({
+            "Jugador Local": isHost ? 'Host' : 'Cliente',
+            "Jugador Enemigo": isHost ? 'Cliente' : 'Host',
+            "Ping (Latencia)": `${window.NetworkLatency.toFixed(2)} ms`,
+            "Desfase (Offset Clock)": `${medianData.offset.toFixed(2)} ms`,
+            "Tiempo de Red Original": `${originalOffset.toFixed(2)} ms`,
+            "Tiempo Compensado (Calibrado)": `${clientClockOffset.toFixed(2)} ms`
+        });
+        console.groupEnd();
+    }
+
+    startActualGame() {
+        this.renderer.setVisible(false);
+
+        window.isMultiplayerWaiting = false;
+        window.startCountdown = true;
+
+        if (this.scene.referee && this.scene.referee.countdown) {
+            this.scene.referee.countdown.startManual();
+        }
+
+        this.scene.events.emit('startMultiplayerCountdown');
+
+        // Bucle de sincronización de estadísticas
+        this.syncEvent = this.scene.time.addEvent({
+            delay: 150, 
+            loop: true,
+            callback: () => {
+                if (!this.conn || !this.conn.open) return;
+
+                let syncData = {
+                    type: 'sync',
+                    isHost: window.MultiplayerData.isHost,
+                    stats: this.scene.scoreLogic ? this.scene.scoreLogic.statsP1 : null,
+                    health: window.Health ? window.Health.health : 1
+                };
+                this.conn.send(syncData);
+            }
+        });
     }
 
     update(time, delta) {}

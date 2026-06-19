@@ -1,3 +1,5 @@
+// src/funkin/play/UI/health/logic.js
+
 class HealthLogic {
     static preload(scene) {
         const pd = scene.playData;
@@ -49,15 +51,15 @@ class HealthLogic {
     }
 
     applyHit(rating, isOpponent = false) {
+        if (window.isMultiplayer) return; // FIX: La vida en multijugador se basa en Score. Ignorar incrementos individuales.
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
 
         const isMainPlayerAction = playerEnemy ? isOpponent : !isOpponent;
 
-        // Si es botplay y la accion es del humano, ignoramos
         if (isMainPlayerAction && isBotplay) return;
-        // En un jugador, ignoramos los aciertos de la IA
         if (!isTwoPlayers && !isMainPlayerAction) return;
 
         let healthChange = 0;
@@ -70,7 +72,6 @@ class HealthLogic {
             case 'shit': healthChange = -0.02; break;
         }
 
-        // LÓGICA DIRECCIONAL: P2 (isOpponent) empuja a 0, P1 empuja a 2.
         if (isOpponent) {
             this.health -= healthChange;
         } else {
@@ -82,22 +83,22 @@ class HealthLogic {
     }
 
     applyMiss(isOpponent = false) {
+        if (window.isMultiplayer) return; // FIX
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
 
         const isMainPlayerAction = playerEnemy ? isOpponent : !isOpponent;
 
-        // Botplay no castiga fallos
         if (isMainPlayerAction && isBotplay) return;
-        // Ignoramos fallos del bot en 1 jugador
         if (!isTwoPlayers && !isMainPlayerAction) return;
 
         const missLoss = 0.08;
         if (isOpponent) {
-            this.health += missLoss; // P2 falla -> P1 gana
+            this.health += missLoss; 
         } else {
-            this.health -= missLoss; // P1 falla -> P2 gana
+            this.health -= missLoss; 
         }
 
         this.health = Phaser.Math.Clamp(this.health, 0, 2);
@@ -105,6 +106,8 @@ class HealthLogic {
     }
 
     applyGhostMiss(isOpponent = false) {
+        if (window.isMultiplayer) return; // FIX
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
@@ -116,9 +119,9 @@ class HealthLogic {
 
         const ghostLoss = 0.04;
         if (isOpponent) {
-            this.health += ghostLoss; // P2 falla
+            this.health += ghostLoss; 
         } else {
-            this.health -= ghostLoss; // P1 falla
+            this.health -= ghostLoss; 
         }
 
         this.health = Phaser.Math.Clamp(this.health, 0, 2);
@@ -126,6 +129,8 @@ class HealthLogic {
     }
 
     applyHold(delta, isOpponent = false) {
+        if (window.isMultiplayer) return; // FIX
+
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
@@ -149,6 +154,7 @@ class HealthLogic {
     checkGameOver(scene) {
         const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+        const isMultiplayer = window.isMultiplayer || false;
         const evtScene = scene || this.scene;
 
         if (this.health <= 0) {
@@ -157,7 +163,7 @@ class HealthLogic {
 
             if (!this.isGameOver) {
                 this.isGameOver = true;
-                if (isTwoPlayers) {
+                if (isTwoPlayers || isMultiplayer) {
                     console.log("[HealthLogic] Game Over: ¡El Jugador 1 (P1) ha perdido!");
                     if (evtScene.events) evtScene.events.emit('gameover_p1');
                 } else {
@@ -176,7 +182,7 @@ class HealthLogic {
 
             if (!this.isGameOver) {
                 this.isGameOver = true;
-                if (isTwoPlayers) {
+                if (isTwoPlayers || isMultiplayer) {
                     console.log("[HealthLogic] Game Over: ¡El Jugador 2 (P2) ha perdido!");
                     if (evtScene.events) evtScene.events.emit('gameover_p2');
                 } else {
@@ -190,12 +196,27 @@ class HealthLogic {
             }
         }
         else {
-            // Si la vida vuelve a estar en el rango seguro (mayor a 0 y menor a 2), reseteamos el GameOver
             this.isGameOver = false;
         }
     }
 
     update(time, delta) {
+        // FIX: Reestructurar salud en función estricta de Scores (Multijugador)
+        if (window.isMultiplayer && this.scene.scoreLogic) {
+            let scoreP1 = this.scene.scoreLogic.statsP1.score;
+            let scoreP2 = this.scene.scoreLogic.statsP2.score;
+            
+            // La base es 1 (centro). Sumamos la diferencia (Tug of War / Tira y Afloja)
+            // Se necesitan 5000 puntos de ventaja limpios para aplastar por completo al rival
+            let diff = scoreP1 - scoreP2;
+            this.health = 1 + (diff / 5000);
+            
+            this.health = Phaser.Math.Clamp(this.health, 0, 2);
+            this.currentHealth = this.health;
+            
+            this.checkGameOver(this.scene);
+        }
+
         this.healthLerp = this.healthLerp + (this.health - this.healthLerp) * 0.15;
         if (isNaN(this.healthLerp)) this.healthLerp = this.health;
 

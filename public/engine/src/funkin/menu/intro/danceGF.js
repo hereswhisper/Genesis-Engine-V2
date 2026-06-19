@@ -1,3 +1,5 @@
+// public/engine/src/funkin/menu/intro/danceGF.js
+
 class IntroDanceScene extends Phaser.Scene {
   constructor() {
     super({ key: "introDance" });
@@ -5,6 +7,7 @@ class IntroDanceScene extends Phaser.Scene {
 
   init() {
     Object.assign(this, {
+      city: null, 
       logo: null,
       gf: null,
       titleText: null,
@@ -36,11 +39,31 @@ class IntroDanceScene extends Phaser.Scene {
     });
   }
 
+  preload() {
+    const basePath = (typeof Path !== "undefined") ? Path.menuIntro : ((typeof window.Path !== "undefined") ? window.Path.menuIntro : "assets/images/menuIntro/");
+    
+    // FIX TEXTURAS: Verificamos si fueron borradas de la caché al salir de la escena
+    // y las volvemos a cargar automáticamente si es necesario.
+    const checkAndLoad = (key, filename) => {
+        if (!this.textures.exists(key)) {
+            this.load.atlasXML(key, basePath + filename + ".png", basePath + filename + ".xml");
+        }
+    };
+
+    checkAndLoad("city", "city");
+    checkAndLoad("logoBumpin", "logoBumpin");
+    checkAndLoad("gfDanceTitle", "gfDanceTitle");
+    
+    // El asset de texto suele llamarse titleEnter en los archivos físicos de FNF
+    if (!this.textures.exists("titleText")) {
+        this.load.atlasXML("titleText", basePath + "titleEnter.png", basePath + "titleEnter.xml");
+    }
+  }
+
   create() {
-    // 1. Blindar creación de animaciones
     this.createAnimations();
 
-    // 2. Blindar música base
+    // Blindar música base
     try {
       this.music = this.sound.getAllPlaying().find((s) => ["introMusic", "freakyMenu"].includes(s.key));
       if (!this.music && this.cache.audio.exists("freakyMenu")) {
@@ -55,7 +78,30 @@ class IntroDanceScene extends Phaser.Scene {
 
     const { width: w, height: h } = this.scale;
 
-    // 3. Creador de sprites con tolerancia a fallos
+    // Fondo de ciudad
+    if (this.textures.exists("city")) {
+        this.city = this.add.sprite(w / 2, h / 2, "city");
+        this.city.setOrigin(0.5, 0.5); 
+        this.city.setAlpha(0.3); 
+        
+        if (!this.anims.exists("cityLoop")) {
+            const cityFrames = this.textures.get("city").getFrameNames().sort();
+            if (cityFrames.length > 0) {
+                this.anims.create({
+                    key: "cityLoop",
+                    frames: cityFrames.map(f => ({ key: "city", frame: f })),
+                    frameRate: 12, 
+                    repeat: -1 
+                });
+            }
+        }
+        
+        if (this.anims.exists("cityLoop")) {
+            this.city.play("cityLoop");
+        }
+    }
+
+    // Creador de sprites seguro
     const makeSp = (key, anim, xPct, yPct) => {
       let s;
       if (this.textures.exists(key)) {
@@ -65,8 +111,8 @@ class IntroDanceScene extends Phaser.Scene {
         }
       } else {
         console.warn(`[IntroDance] Textura crítica ausente: ${key}. Generando dummy para evitar crash.`);
-        s = this.add.sprite(0, 0, '__DEFAULT'); // Textura verde por defecto
-        s.play = function() { return this; }; // Sobreescritura dummy
+        s = this.add.sprite(0, 0, '__DEFAULT'); 
+        s.play = function() { return this; }; 
       }
       return s.setOrigin(0, 0).setPosition(w * xPct - s.displayWidth / 2, h * yPct - s.displayHeight / 2);
     };
@@ -74,7 +120,9 @@ class IntroDanceScene extends Phaser.Scene {
     this.logo = makeSp("logoBumpin", "logoBump", 0.24, 0.35);
     this.gf = makeSp("gfDanceTitle", "gfDanceRight", 0.7, 0.5);
 
-    // Validar Textos
+    if (this.logo) this.logo.setAlpha(0.8);
+    if (this.gf) this.gf.setAlpha(0.8);
+
     if (this.textures.exists("titleText")) {
         this.titleText = this.add.sprite(0, 0, "titleText");
         if (this.anims.exists("titleIdle")) this.titleText.play("titleIdle");
@@ -83,6 +131,7 @@ class IntroDanceScene extends Phaser.Scene {
         this.titleText.play = function() { return this; };
     }
     this.titleText.setOrigin(0, 0);
+    this.titleText.setAlpha(0.8); 
 
     this.updateTitlePos = () => {
       if (this.titleText && this.titleText.active) {
@@ -98,6 +147,13 @@ class IntroDanceScene extends Phaser.Scene {
         this.titleText.on("animationupdate", this.updateTitlePos);
     }
 
+    // FIX CONTROLES: Remover listener fantasma anterior si quedó activo por error
+    if (this.inputListener) {
+        window.removeEventListener("keydown", this.inputListener);
+    }
+
+    // Restablecer oyentes de ritmo y teclado
+    Conductor.events.off("beatHit", this.onBeatHit, this);
     Conductor.events.on("beatHit", this.onBeatHit, this);
 
     this.inputListener = (e) => this.handleInput(e);
@@ -188,7 +244,10 @@ class IntroDanceScene extends Phaser.Scene {
   }
 
   handleInput(e) {
-    if (this.transitioning) return Controls.ACCEPT(e) && this.skipConfirmDelay();
+    if (this.transitioning) {
+        if (Controls.ACCEPT(e)) this.skipConfirmDelay();
+        return;
+    }
 
     if (e.key) {
       this.fnfBuffer += e.key.toLowerCase();
@@ -245,18 +304,28 @@ class IntroDanceScene extends Phaser.Scene {
     if (this.gf && this.gf.postFX) this.gfColorMatrix = this.gf.postFX.addColorMatrix();
     if (this.logo && this.logo.postFX) this.logoColorMatrix = this.logo.postFX.addColorMatrix();
 
-    // Solo cambiar scale si existe currentAnim (es un dummy o anim real)
+    if (this.gf) this.gf.setAlpha(0.8);
+    if (this.logo) this.logo.setAlpha(0.8);
+    if (this.titleText) this.titleText.setAlpha(0.8);
+    
+    if (this.city) {
+        this.city.setAlpha(0.1); 
+        if (this.city.anims) {
+            this.city.anims.timeScale = 2.0; 
+        }
+    }
+
     if (this.gf && this.gf.anims && this.gf.anims.currentAnim) {
         this.gf.anims.timeScale = 1.5;
     }
 
-    this.sound.stopAll();
+    this.sound.getAllPlaying().forEach(s => s.stop());
 
-    if (this.cache.audio.exists("girlfriendsRingtone")) {
-        this.music = this.sound.add("girlfriendsRingtone", { loop: true, volume: 0 });
-        this.music.play();
-        this.tweens.add({ targets: this.music, volume: 1.0, duration: 4000 });
-    }
+    let audioKey = this.cache.audio.exists("girlfriendsRingtone") ? "girlfriendsRingtone" : "freakyMenu";
+    
+    this.music = this.sound.add(audioKey, { loop: true, volume: 0 });
+    this.music.play();
+    this.tweens.add({ targets: this.music, volume: 1.0, duration: 4000 });
 
     Conductor.mapTimeChanges([new SongTimeChange(0, 160, 4, 4)]);
   }
@@ -264,6 +333,11 @@ class IntroDanceScene extends Phaser.Scene {
   confirmSelection() {
     if (this.transitioning) return;
     this.transitioning = true;
+
+    // Solo detenemos si es específicamente el ringtone de novia
+    if (this.music && this.music.isPlaying && this.music.key === "girlfriendsRingtone") {
+        this.music.stop();
+    }
 
     if (this.anims.exists("titlePress")) {
         this.titleText.play("titlePress");
@@ -274,14 +348,13 @@ class IntroDanceScene extends Phaser.Scene {
         this.sound.play("confirmMenu");
     }
 
-    if (this.cheatActive && this.music) {
-      this.tweens.add({ targets: this.music, volume: 0, duration: 2500 });
-    }
-
     this.confirmTimer = this.time.delayedCall(2500, () => this.goToMainMenu());
   }
 
   skipConfirmDelay() {
+    if (this.music && this.music.isPlaying && this.music.key === "girlfriendsRingtone") {
+        this.music.stop();
+    }
     if (this.confirmTimer) {
       this.confirmTimer.remove();
       this.confirmTimer = null;
@@ -296,26 +369,47 @@ class IntroDanceScene extends Phaser.Scene {
   }
 
   shutdown() {
-    Conductor.events.off("beatHit", this.onBeatHit, this);
-    window.removeEventListener("keydown", this.inputListener);
+    // FIX CONTROLES: Try/Catch bloque por bloque para asegurar que los listeners de teclado 
+    // y eventos SIEMPRE se borren, aunque algo más abajo falle.
+    try {
+        Conductor.events.off("beatHit", this.onBeatHit, this);
+    } catch(e){}
+
+    try {
+        window.removeEventListener("keydown", this.inputListener);
+    } catch(e){}
+
     if (this.confirmTimer) {
-      this.confirmTimer.remove();
-      this.confirmTimer = null;
-    }
-    if (this.infinityActive && typeof Neutralino !== "undefined" && this.originalWinPos) {
-      this.infinityActive = false;
-      Neutralino.window.move(this.originalWinPos.x, this.originalWinPos.y);
+        this.confirmTimer.remove();
+        this.confirmTimer = null;
     }
 
-    if (this.gf) this.gf.postFX?.clear();
-    if (this.logo) this.logo.postFX?.clear();
+    try {
+        if (this.infinityActive && typeof Neutralino !== "undefined" && this.originalWinPos) {
+            this.infinityActive = false;
+            Neutralino.window.move(this.originalWinPos.x, this.originalWinPos.y);
+        }
+    } catch(e){}
 
-    this.cameras.main?.fadeEffect?.reset();
-    this.cameras.main?.flashEffect?.reset();
-    this.cameras.main?.clearFX();
-    this.tweens.killAll();
+    try {
+        if (this.gf && this.gf.postFX) this.gf.postFX.clear();
+        if (this.logo && this.logo.postFX) this.logo.postFX.clear();
+    } catch(e){}
+
+    try {
+        this.cameras.main?.fadeEffect?.reset();
+        this.cameras.main?.flashEffect?.reset();
+        this.cameras.main?.clearFX();
+        this.tweens.killAll();
+    } catch(e){}
   }
 }
 
 window.IntroDanceScene = IntroDanceScene;
-window.game.scene.add("introDance", window.IntroDanceScene);
+
+if (window.game && window.game.scene) {
+    try {
+        window.game.scene.remove("introDance");
+    } catch (e) {}
+    window.game.scene.add("introDance", window.IntroDanceScene);
+}

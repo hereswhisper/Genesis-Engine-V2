@@ -7,6 +7,14 @@ class SustainLogic {
         this.activeSustains = [];
     }
 
+    _isLocal(isOpponentSide) {
+        const isMultiplayer = window.isMultiplayer || false;
+        const playerEnemy = isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
+        return playerEnemy ? isOpponentSide : !isOpponentSide;
+    }
+
     spawnSustain(noteData) {
         if (!noteData.l || noteData.l <= 0) return;
 
@@ -17,6 +25,12 @@ class SustainLogic {
 
         if (targetStrum) {
             const sustain = new window.SustainTrail(this.scene, noteData, targetStrum);
+            
+            sustain.wasGoodHit = false;
+            sustain.wasEverHit = false; 
+            sustain.isBeingHeld = false;
+            sustain.missedNote = false;
+
             this.activeSustains.push(sustain);
         }
     }
@@ -25,7 +39,20 @@ class SustainLogic {
         const sustain = this.activeSustains.find(s => s.noteData === note.noteData);
         if (sustain) {
             sustain.wasGoodHit = true;
+            sustain.wasEverHit = true; 
             sustain.isBeingHeld = true;
+        }
+    }
+
+    onNoteMiss(note) {
+        const sustain = this.activeSustains.find(s => s.noteData === note.noteData);
+        if (sustain && !sustain.wasGoodHit) {
+            sustain.isBeingHeld = false;
+            sustain.missedNote = true;
+            sustain.wasGoodHit = false; 
+            
+            sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
+            sustain.setAlpha(0.3); 
         }
     }
 
@@ -34,11 +61,13 @@ class SustainLogic {
         if (sustain) {
             sustain.isBeingHeld = false;
             sustain.missedNote = true;
+            sustain.wasGoodHit = false; 
+
             sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
             sustain.setAlpha(0.3);
 
             if (sustain.sustainLength > 10) {
-                if (window.Health) window.Health.applyMiss(false); // Castigo al soltar la sustain P1
+                if (window.Health) window.Health.applyMiss(false);
 
                 this.scene.events.emit('noteMiss', {
                     note: { noteData: sustain.noteData },
@@ -55,11 +84,13 @@ class SustainLogic {
         if (sustain) {
             sustain.isBeingHeld = false;
             sustain.missedNote = true;
+            sustain.wasGoodHit = false; 
+
             sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
             sustain.setAlpha(0.3);
 
             if (sustain.sustainLength > 10) {
-                if (window.Health) window.Health.applyMiss(true); // Castigo al soltar la sustain P2
+                if (window.Health) window.Health.applyMiss(true); 
 
                 this.scene.events.emit('noteMiss', {
                     note: { noteData: sustain.noteData },
@@ -74,18 +105,51 @@ class SustainLogic {
     update(time, delta) {
         const songTime = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
         const scrollSpeed = Number(this.scene.playData.get('scrollSpeed', 2.0));
+        const hitWindow = window.PlaySettings ? window.PlaySettings.hitWindow : 160;
 
         for (let i = this.activeSustains.length - 1; i >= 0; i--) {
             const sustain = this.activeSustains[i];
+            const isOpponentSustain = sustain.noteData.p === 'op';
+            const isLocalSustain = this._isLocal(isOpponentSustain);
 
-            sustain.updatePos(songTime, scrollSpeed, delta);
+            let renderTime = songTime;
+            if (!isLocalSustain && window.isMultiplayer) {
+                renderTime -= (window.NetworkLatency || 0);
+            }
+
+            const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+            const isAI = playerEnemy ? !isOpponentSustain : isOpponentSustain;
+
+            if (isAI && sustain.strumTarget && sustain.strumTarget.anims && sustain.strumTarget.anims.currentAnim) {
+                const isConfirming = sustain.strumTarget.anims.currentAnim.key.includes('confirm');
+                
+                if (isConfirming && renderTime >= sustain.noteData.t - 100 && renderTime <= sustain.noteData.t + sustain.noteData.l) {
+                    sustain.wasEverHit = true;
+                    sustain.wasGoodHit = true;
+                    sustain.isBeingHeld = true;
+                    sustain.missedNote = false;
+                    sustain.setAlpha(sustain.alphaVal !== undefined ? sustain.alphaVal : 1.0);
+                } 
+                else if (sustain.wasEverHit && sustain.isBeingHeld && !isConfirming && renderTime < sustain.noteData.t + sustain.noteData.l) {
+                    sustain.isBeingHeld = false;
+                    sustain.wasGoodHit = false;
+                    sustain.timeOfMiss = renderTime;
+                }
+            }
+
+            sustain.updatePos(renderTime, scrollSpeed, delta);
+
+            if (!sustain.wasEverHit && renderTime > sustain.noteData.t + hitWindow) {
+                if (!sustain.missedNote) {
+                    sustain.missedNote = true;
+                    sustain.isBeingHeld = false;
+                    sustain.wasGoodHit = false; 
+                    sustain.timeOfMiss = renderTime;
+                    sustain.setAlpha(0.3); 
+                }
+            }
 
             if (sustain.isBeingHeld && !sustain.missedNote) {
-
-                const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
-                const isOpponentSustain = sustain.noteData.p === 'op';
-
-                const isAI = playerEnemy ? !isOpponentSustain : isOpponentSustain;
                 const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
 
                 if (canGlow) {
@@ -94,14 +158,24 @@ class SustainLogic {
                     }
                 }
 
-                // AHORA USA HEALTH NATIVO (Soporta multijugador enviando el isOpponent param)
                 if (window.Health) {
                     window.Health.applyHold(delta, isOpponentSustain);
                     this.scene.events.emit('healthUpdate', window.Health.currentHealth);
                 }
             }
 
-            if (sustain.isCompleted || sustain.isOut) {
+            let shouldDestroy = false;
+            
+            if (sustain.wasGoodHit && !sustain.missedNote && sustain.isCompleted) {
+                shouldDestroy = true; 
+            } else {
+                const timeToClearScreen = 1500; 
+                if (sustain.isOut || renderTime > (sustain.noteData.t + sustain.noteData.l + timeToClearScreen)) {
+                    shouldDestroy = true; 
+                }
+            }
+
+            if (shouldDestroy) {
                 sustain.destroy();
                 this.activeSustains.splice(i, 1);
             }

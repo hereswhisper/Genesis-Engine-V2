@@ -57,19 +57,41 @@ class NoteSplashLogic {
   onNoteHit(data) {
     if (!data || !data.note || !data.note.noteData || !window.Preferences.noteSplashes) return;
 
+    // 1. Si la nota está marcada internamente como tocada por un Botplay, la ignoramos.
     if (data.note.isBotPlay) return;
 
-    const isPlayer = data.note.noteData.p === "pl";
+    const isMultiplayer = window.isMultiplayer || false;
+    const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+    const playerEnemy = isMultiplayer
+        ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+        : (window.Preferences ? window.Preferences.playerEnemy : false);
 
-    if (isPlayer) {
-      const absDiff = Math.abs(
-        data.note.noteData.t - window.Conductor.songPosition,
-      );
-      if (absDiff <= window.Judgment.PBOT1_SICK_THRESHOLD) {
-        this.showSplash(data.note.direction, true);
-      }
+    const isOpponentSide = data.note.noteData.p === "op";
+    const isLocalNote = playerEnemy ? isOpponentSide : !isOpponentSide;
+
+    // 2. Si la nota NO le pertenece a tu jugador local y NO estás en Multiplayer ni 2Players,
+    // significa que el oponente es la IA del juego (Bot enemigo). No mostramos Splash.
+    if (!isLocalNote && !isMultiplayer && !isTwoPlayers) {
+        return; 
+    }
+
+    const isPlayer = data.note.noteData.p === "pl";
+    let isSickOrBetter = false;
+
+    // Si viene con un rating ya evaluado (común en multiplayer o al procesar la nota local)
+    if (data.rating) {
+        const r = data.rating.toLowerCase();
+        isSickOrBetter = (r === 'perfect' || r === 'killer' || r === 'sick');
     } else {
-      this.showSplash(data.note.direction, false);
+        // Fallback: calcular la diferencia de tiempo si no hay un rating explícito
+        const absDiff = Math.abs(data.note.noteData.t - window.Conductor.songPosition);
+        // Validar usando el umbral SICK (<= 45ms típicamente), lo que incluye Killer y Perfect.
+        isSickOrBetter = (absDiff <= window.Judgment.PBOT1_SICK_THRESHOLD);
+    }
+
+    // Si cumple con la precisión requerida, disparamos la animación
+    if (isSickOrBetter) {
+      this.showSplash(data.note.direction, isPlayer);
     }
   }
 
@@ -89,7 +111,6 @@ class NoteSplashLogic {
     if (targetStrum) {
       let splash = this.splashGroup.get();
       if (splash) {
-        // Enviar solo la flecha entera y la skinData
         splash.spawn(targetStrum, this.skinData);
       }
     }

@@ -16,12 +16,12 @@ class SustainTrail {
 
     this.isBeingHeld = false;
     this.wasGoodHit = false;
+    this.wasEverHit = false; 
     this.missedNote = false;
     this.timeOfMiss = 0;
     this.isCompleted = false;
     this.isOut = false;
 
-    // SOLUCIÓN: Preservar y respetar la escala del JSON multiplicándola por el ratio de amplificación
     const jsonScale = Number(this.skinData.scale !== undefined ? this.skinData.scale : 0.6);
     const baseStrumScale = skins.get("gameplay.strumline.scale") || 0.7;
     const strumScale = this.strumTarget.scaleX !== undefined ? this.strumTarget.scaleX : baseStrumScale;
@@ -32,7 +32,6 @@ class SustainTrail {
     const jsonAlpha = Number(this.skinData.alpha !== undefined ? this.skinData.alpha : 1.0);
     this.alphaVal = this.strumTarget.noteAlpha !== undefined ? this.strumTarget.noteAlpha : jsonAlpha;
 
-    // Se calcula usando jsonScale local para evitar separaciones extremas en offsets
     const ratio = this.scaleVal / jsonScale;
     this.offsetX = this.skinData.Offset ? Number(this.skinData.Offset[0] || 0) * ratio : 0;
     this.offsetY = this.skinData.Offset ? Number(this.skinData.Offset[1] || 0) * ratio : 0;
@@ -108,27 +107,48 @@ class SustainTrail {
 
     const strumDownscroll = this.strumTarget.downscroll;
     const dirMult = strumDownscroll ? -1 : 1;
+    const rot = this.strumTarget.rotation;
 
     const animOffX = this.strumTarget.animOffsetX || 0;
     const animOffY = this.strumTarget.animOffsetY || 0;
-
     const deltaX = (this.strumTarget.x - animOffX) - this.strumTarget.baseX;
     const deltaY = (this.strumTarget.y - animOffY) - this.strumTarget.baseY;
-    const rot = this.strumTarget.rotation;
+
+    // --- AJUSTE VISUAL MANUAL ---
+    // Desplaza todo (texturas y recortes) unos píxeles hacia abajo, igual que en la nota normal.
+    const MANUAL_Y_OFFSET = 0;
 
     const targetX = this.fixedTargetX + deltaX;
-    const targetY = this.fixedTargetY + deltaY;
+    const targetY = this.fixedTargetY + deltaY + MANUAL_Y_OFFSET;
 
-    let currentLengthMs = this.fullSustainLength;
-    if (this.wasGoodHit && !this.missedNote) {
-      currentLengthMs = this.noteData.t + this.fullSustainLength - songTime;
-    } else if (this.missedNote) {
-      currentLengthMs = this.noteData.t + this.fullSustainLength - this.timeOfMiss;
+    // --- SOLUCIÓN DE RECORTE (CROP) FLUIDO SIN ESTIRAMIENTOS ---
+    let visualStartTime = this.noteData.t;
+    let isVisuallyHeld = this.isBeingHeld;
+
+    if (this.strumTarget && this.strumTarget.anims && this.strumTarget.anims.currentAnim) {
+        if (this.strumTarget.anims.currentAnim.key.includes('confirm')) {
+            isVisuallyHeld = true;
+            this.wasEverHit = true;
+        }
     }
 
+    if (this.wasEverHit) {
+        if (!this.missedNote && isVisuallyHeld) {
+            visualStartTime = songTime;
+        } else {
+            visualStartTime = this.timeOfMiss || this.noteData.t;
+        }
+    }
+
+    // Clamp de seguridad
+    if (visualStartTime < this.noteData.t) visualStartTime = this.noteData.t;
+    if (visualStartTime > this.noteData.t + this.fullSustainLength) visualStartTime = this.noteData.t + this.fullSustainLength;
+
+    let currentLengthMs = (this.noteData.t + this.fullSustainLength) - visualStartTime;
+    if (currentLengthMs < 0) currentLengthMs = 0;
     this.sustainLength = currentLengthMs;
 
-    if (this.sustainLength <= 10 && this.wasGoodHit) {
+    if (this.sustainLength <= 10 && this.wasGoodHit && !this.missedNote) {
       this.isCompleted = true;
       this.setVisible(false);
       if (this.strumTarget.isHeld === false) this.strumTarget.playAnim("static");
@@ -136,35 +156,28 @@ class SustainTrail {
     }
 
     const pixelsPerMs = 0.45 * scrollSpeed;
-    let visualHeight = this.sustainLength * pixelsPerMs;
+    
+    // Generamos basándonos SIEMPRE en el tamaño total para no perder las proporciones
+    let fullTopY = targetY + (this.noteData.t - songTime) * pixelsPerMs * dirMult;
+    let fullBottomY = targetY + (this.noteData.t + this.fullSustainLength - songTime) * pixelsPerMs * dirMult;
+    let visibleTopY = targetY + (visualStartTime - songTime) * pixelsPerMs * dirMult;
 
-    let noteY = targetY + (this.noteData.t - songTime) * pixelsPerMs * dirMult;
+    let fullVisualHeight = this.fullSustainLength * pixelsPerMs;
+    let isHidden = this.alphaVal <= 0 || fullVisualHeight <= 0 || currentLengthMs <= 0;
 
-    if (this.wasGoodHit && !this.missedNote) {
-      noteY = targetY;
-    }
-
-    const isHidden = this.alphaVal <= 0;
-
-    if (visualHeight <= 0 || isHidden) {
+    if (isHidden) {
       this.bodyPieces.forEach((p) => p.setVisible(false));
-
-      if (isHidden && this.endSprite) {
+      if (this.endSprite) {
           this.endSprite.setVisible(false);
-          let endPosDist = noteY + (visualHeight * dirMult) - targetY;
-          this.endSprite.setPosition(
-              targetX - (endPosDist * Math.sin(rot)),
-              targetY + (endPosDist * Math.cos(rot))
-          );
-          if (!strumDownscroll && this.endSprite.y < -300) this.isOut = true;
-          else if (strumDownscroll && this.endSprite.y > this.scene.scale.height + 300) this.isOut = true;
+          if (!strumDownscroll && visibleTopY < -300) this.isOut = true;
+          else if (strumDownscroll && visibleTopY > this.scene.scale.height + 300) this.isOut = true;
       }
       return;
     }
 
     if (this.bodyFrameName && this.bodyFrameHeight > 0) {
       const basePieceH = this.bodyFrameHeight * this.scaleVal;
-      const numPieces = Math.ceil(visualHeight / basePieceH);
+      const numPieces = Math.ceil(fullVisualHeight / basePieceH);
 
       while (this.bodyPieces.length < numPieces) {
         const sp = this.scene.add.sprite(0, 0, this.atlasKey, this.bodyFrameName);
@@ -173,8 +186,7 @@ class SustainTrail {
         this.bodyPieces.push(sp);
       }
 
-      const exactPieceH = visualHeight / numPieces;
-      let curY = noteY;
+      let curY = fullTopY;
 
       for (let i = 0; i < this.bodyPieces.length; i++) {
         const sp = this.bodyPieces[i];
@@ -185,12 +197,11 @@ class SustainTrail {
           sp.setFlipY(strumDownscroll);
 
           let startY = curY;
-          let nextY = curY + (exactPieceH * dirMult) + (strumDownscroll ? -1 : 1);
-          let endVisualY = noteY + (visualHeight * dirMult);
-          let fW = sp.frame ? sp.frame.width : sp.width;
+          let nextY = curY + (basePieceH * dirMult);
 
           if (!strumDownscroll) {
-            if (nextY > endVisualY) nextY = endVisualY;
+            // Lógica Upscroll
+            if (nextY > fullBottomY) nextY = fullBottomY;
             let integerHeight = nextY - startY;
             sp.setOrigin(0.5, 0);
 
@@ -198,19 +209,23 @@ class SustainTrail {
             sp.setPosition(targetX - (dist * Math.sin(rot)), targetY + (dist * Math.cos(rot)));
             sp.setRotation(rot);
             sp.setScale(this.scaleVal, Math.max(0, integerHeight) / this.bodyFrameHeight);
+            
+            let fW = sp.frame ? sp.frame.width : sp.width;
 
-            if (nextY <= targetY) {
-                sp.setVisible(false);
-            } else if (startY >= targetY) {
-                sp.setCrop();
+            // Recortar lo que fue consumido
+            if (nextY <= visibleTopY) {
+                sp.setVisible(false); 
+            } else if (startY >= visibleTopY) {
+                sp.setCrop(); 
             } else {
-                let hiddenRatio = (targetY - startY) / (nextY - startY);
+                let hiddenRatio = (visibleTopY - startY) / (nextY - startY);
                 let cropTop = this.bodyFrameHeight * hiddenRatio;
                 sp.setCrop(0, cropTop, fW, this.bodyFrameHeight - cropTop);
             }
 
           } else {
-            if (nextY < endVisualY) nextY = endVisualY;
+            // Lógica Downscroll
+            if (nextY < fullBottomY) nextY = fullBottomY;
             let integerHeight = startY - nextY;
             sp.setOrigin(0.5, 1);
 
@@ -219,19 +234,22 @@ class SustainTrail {
             sp.setRotation(rot);
             sp.setScale(this.scaleVal, Math.max(0, integerHeight) / this.bodyFrameHeight);
 
-            if (nextY >= targetY) {
-                sp.setVisible(false);
-            } else if (startY <= targetY) {
-                sp.setCrop();
+            let fW = sp.frame ? sp.frame.width : sp.width;
+
+            // Recortar lo que fue consumido
+            if (nextY >= visibleTopY) {
+                sp.setVisible(false); 
+            } else if (startY <= visibleTopY) {
+                sp.setCrop(); 
             } else {
-                let hiddenRatio = (startY - targetY) / (startY - nextY);
+                let hiddenRatio = (startY - visibleTopY) / (startY - nextY);
                 let visibleRatio = 1.0 - hiddenRatio;
                 let cropHeight = this.bodyFrameHeight * visibleRatio;
                 sp.setCrop(0, 0, fW, cropHeight);
             }
           }
 
-          curY += (exactPieceH * dirMult);
+          curY += (basePieceH * dirMult);
         } else {
           sp.setVisible(false);
         }
@@ -241,51 +259,48 @@ class SustainTrail {
     if (this.endSprite) {
       this.endSprite.setVisible(true);
       this.endSprite.setFlipY(strumDownscroll);
-
-      let endPosDist = noteY + (visualHeight * dirMult) - targetY;
-      this.endSprite.setPosition(
-          targetX - (endPosDist * Math.sin(rot)),
-          targetY + (endPosDist * Math.cos(rot))
-      );
       this.endSprite.setRotation(rot);
-
+      this.endSprite.setScale(this.scaleVal);
+      this.endSprite.setAlpha(this.alphaVal);
+      
       let capH = this.endSprite.height * this.scaleVal;
       if (capH <= 0) capH = 1;
       let fW = this.endSprite.frame ? this.endSprite.frame.width : this.endSprite.width;
 
+      const dist = fullBottomY - targetY;
+      this.endSprite.setPosition(targetX - (dist * Math.sin(rot)), targetY + (dist * Math.cos(rot)));
+
       if (!strumDownscroll) {
         this.endSprite.setOrigin(0.5, 0);
-        let endPos = noteY + visualHeight;
-        let endPosBottom = endPos + capH;
+        let endPosBottom = fullBottomY + capH;
 
-        if (endPosBottom <= targetY) {
+        if (endPosBottom <= visibleTopY) {
             this.endSprite.setVisible(false);
-        } else if (endPos >= targetY) {
+        } else if (fullBottomY >= visibleTopY) {
             this.endSprite.setCrop();
         } else {
-            let hiddenRatio = (targetY - endPos) / capH;
+            let hiddenRatio = (visibleTopY - fullBottomY) / capH;
             let cropTop = this.endSprite.height * hiddenRatio;
             this.endSprite.setCrop(0, cropTop, fW, this.endSprite.height - cropTop);
         }
 
-        if (this.endSprite.y < -300) this.isOut = true;
+        if (this.endSprite.y < -500) this.isOut = true;
       } else {
         this.endSprite.setOrigin(0.5, 1);
-        let endPos = noteY - visualHeight;
-        let endPosTop = endPos - capH;
+        let endPosTop = fullBottomY - capH;
 
-        if (endPosTop >= targetY) {
+        if (endPosTop >= visibleTopY) {
             this.endSprite.setVisible(false);
-        } else if (endPos <= targetY) {
+        } else if (fullBottomY <= visibleTopY) {
             this.endSprite.setCrop();
         } else {
-            let hiddenRatio = (endPos - targetY) / capH;
+            let hiddenRatio = (fullBottomY - visibleTopY) / capH;
             let visibleRatio = 1.0 - hiddenRatio;
             let cropHeight = this.endSprite.height * visibleRatio;
             this.endSprite.setCrop(0, 0, fW, cropHeight);
         }
 
-        if (this.endSprite.y > this.scene.scale.height + 300) this.isOut = true;
+        if (this.endSprite.y > this.scene.scale.height + 500) this.isOut = true;
       }
     }
   }

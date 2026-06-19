@@ -104,9 +104,14 @@ class Note extends Phaser.GameObjects.Sprite {
         const scrollOffsetX = -dist * Math.sin(rot);
         const scrollOffsetY = dist * Math.cos(rot);
 
-        // Se calcula la posición sumando al final los offsets visuales (X y Y) extraídos de la skin
+        // --- AJUSTE VISUAL MANUAL ---
+        // Empuja la textura hacia abajo independientemente de los milisegundos.
+        // Puedes cambiar este 20 si necesitas que baje más o menos.
+        const MANUAL_Y_OFFSET = 20; 
+
+        // Se calcula la posición sumando al final los offsets visuales (X y Y) extraídos de la skin y el manual
         const currentX = this.baseX + deltaX + scrollOffsetX + this.visualOffsetX;
-        const currentY = this.baseY + deltaY + scrollOffsetY + this.visualOffsetY;
+        const currentY = this.baseY + deltaY + scrollOffsetY + this.visualOffsetY + MANUAL_Y_OFFSET;
 
         this.setPosition(currentX, currentY);
         this.setRotation(rot);

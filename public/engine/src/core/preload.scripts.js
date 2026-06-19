@@ -54,7 +54,10 @@ async function loadScriptsOrderly() {
 }
 
 async function bootEngine() {
-  if (typeof Neutralino !== "undefined" && !window.isReactNative) {
+  // Comprobamos si las variables de entorno de Neutralino existen
+  const isNeutralinoEnv = typeof Neutralino !== "undefined" && typeof window.NL_PORT !== "undefined";
+
+  if (isNeutralinoEnv && !window.isReactNative) {
     Neutralino.init();
     console.log(
       "%c GENESIS %c Neutralino inicializado (Modo PC).",
@@ -74,6 +77,15 @@ async function bootEngine() {
       "background: #004d40; color: white;",
       "color: unset;"
     );
+  } else {
+    // Si estamos en un navegador web puro y no en React Native ni Neutralino
+    console.log(
+      "%c GENESIS %c Neutralino ignorado (Modo Navegador Web).",
+      "background: #004d40; color: white;",
+      "color: unset;"
+    );
+    // Nota: Si dependes de FileSystem aquí, podrías necesitar una versión de 
+    // FileSystem diseñada para la web (ej. basada en LocalStorage o IndexedDB).
   }
 
   if (window.DataSongs) {

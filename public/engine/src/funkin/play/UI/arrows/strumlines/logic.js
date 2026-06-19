@@ -13,7 +13,6 @@ class StrumlineLogic {
     this.ghostTapping = window.Preferences.ghostTapping;
     this.downscroll = window.Preferences.downscroll;
 
-    // CORRECCIÓN: Asignación estricta para Host = false, Cliente = true
     if (window.isMultiplayer && window.MultiplayerData) {
         this.playerEnemy = !window.MultiplayerData.isHost;
         this.twoPlayers = false;
@@ -195,7 +194,9 @@ class StrumlineLogic {
   }
 
   processInput(dir, isDown, isOpponentSide, fromNetwork = false, networkTime = null, networkGhostTapping = null) {
-    const actionTime = networkTime !== null ? networkTime : window.Conductor.songPosition;
+    // Si viene de red, el networkTime ya es el momento EXACTO en el que el rival tocó la tecla.
+    // Como las canciones inician juntas, no necesitamos alterar la lógica con latencia aquí.
+    let actionTime = networkTime !== null ? networkTime : window.Conductor.songPosition;
     const currentGhostTapping = networkGhostTapping !== null ? networkGhostTapping : this.ghostTapping;
 
     if (window.isMultiplayer && !fromNetwork) {
@@ -204,7 +205,7 @@ class StrumlineLogic {
             dir: dir,
             isDown: isDown,
             side: isOpponentSide,
-            songTime: actionTime,
+            songTime: actionTime, 
             ghostTapping: currentGhostTapping
         });
     }
@@ -344,25 +345,29 @@ class StrumlineLogic {
   processGhostMiss(strum, isOpponentSide, fromNetwork = false) {
     strum.playAnim("press");
 
-    if (window.Health) {
-        window.Health.applyGhostMiss(isOpponentSide);
-        window.Health.checkGameOver(this.scene);
+    const tapBreak = window.Preferences && window.Preferences.tapBreakCombo !== undefined ? window.Preferences.tapBreakCombo : false;
+
+    if (tapBreak) {
+        if (window.Health) {
+            window.Health.applyGhostMiss(isOpponentSide);
+            window.Health.checkGameOver(this.scene);
+        }
+
+        const packet = {
+            direction: strum.direction,
+            isOpponent: isOpponentSide,
+            isPlayer: !isOpponentSide,
+            health: window.Health ? window.Health.currentHealth : 1.0,
+            playerId: isOpponentSide ? "p2" : "p1",
+            action: "ghostMiss",
+            timestamp: performance.now(),
+            songTime: window.Conductor.songPosition,
+            isGhost: true,
+            isLocal: !fromNetwork
+        };
+
+        this.scene.events.emit("ghostMiss", packet);
     }
-
-    const packet = {
-        direction: strum.direction,
-        isOpponent: isOpponentSide,
-        isPlayer: !isOpponentSide,
-        health: window.Health ? window.Health.currentHealth : 1.0,
-        playerId: isOpponentSide ? "p2" : "p1",
-        action: "ghostMiss",
-        timestamp: performance.now(),
-        songTime: window.Conductor.songPosition,
-        isGhost: true,
-        isLocal: !fromNetwork
-    };
-
-    this.scene.events.emit("ghostMiss", packet);
   }
 
   update(time, delta) {

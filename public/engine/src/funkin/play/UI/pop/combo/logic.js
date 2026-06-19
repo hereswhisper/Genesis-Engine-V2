@@ -41,6 +41,7 @@ class ComboLogic {
 
     constructor(scene) {
         this.scene = scene;
+        this.scene.comboLogic = this;
         this.skins = scene.referee.skins;
         this.comboData = this.skins.get('ui.comboNumbers') || {};
         this.uniqueId = this.scene.playData.uniqueSkinId || this.skins.uniqueId;
@@ -56,6 +57,14 @@ class ComboLogic {
         this.scene.events.on('noteHit', this.onNoteHitListener);
         this.scene.events.on('noteMiss', this.onNoteMissListener);
         this.scene.events.on('ghostMiss', this.onGhostMissListener);
+    }
+
+    _isLocal(isOpponentSide) {
+        const isMultiplayer = window.isMultiplayer || false;
+        const playerEnemy = isMultiplayer
+            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
+            : (window.Preferences ? window.Preferences.playerEnemy : false);
+        return playerEnemy ? isOpponentSide : !isOpponentSide;
     }
 
     spawnCombo(comboValue, isOpponent) {
@@ -76,24 +85,20 @@ class ComboLogic {
         let baseX = 0;
         let baseY = 0;
 
-        // Variables maestras de validación
         const isMultiplayer = window.isMultiplayer || false;
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
-        // Regla: Pantalla dividida SOLO si es Multi/2P Y los popups del rival NO están ocultos
         const useSplitScreen = (isTwoPlayers || isMultiplayer) && showOpPopUp;
 
         if (useSplitScreen) {
-            // INVERTIDO: Enemigo (P2) a la izquierda, Jugador (P1) a la derecha
             if (isOpponent) {
-                baseX = (this.scene.scale.width * 0.25) + 70; // 25% (Izquierda) + offset
+                baseX = (this.scene.scale.width * 0.25) + 70;
             } else {
-                baseX = (this.scene.scale.width * 0.75) + 70; // 75% (Derecha) + offset
+                baseX = (this.scene.scale.width * 0.75) + 70;
             }
             baseY = (this.scene.scale.height * 0.50) + 50;
         } else {
-            // Regresar a coordenadas dinámicas basadas en los porcentajes del usuario
             const posPercent = (window.Preferences && window.Preferences.popUpPos)
                 ? window.Preferences.popUpPos
                 : [50, 42];
@@ -144,30 +149,18 @@ class ComboLogic {
         if (!data || !data.note) return;
 
         const isMultiplayer = window.isMultiplayer || false;
-
-        // Auto-determinamos el rol en multiplayer
-        const playerEnemy = isMultiplayer
-            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
-            : (window.Preferences ? window.Preferences.playerEnemy : false);
-
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
         const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
-        const isOpponentNote = data.note.noteData && data.note.noteData.p === 'op';
-        const isMainPlayerNote = playerEnemy ? isOpponentNote : !isOpponentNote;
+        const isOpponentSide = data.note.noteData && data.note.noteData.p === 'op';
+        const isLocalNote = this._isLocal(isOpponentSide);
 
-        if (isMainPlayerNote && isBotplay) return;
+        if (isLocalNote && isBotplay) return;
+        if (!isLocalNote && !isTwoPlayers && !isMultiplayer) return;
+        if (!isLocalNote && (isTwoPlayers || isMultiplayer) && !showOpPopUp) return;
 
-        // Si la nota no es tuya y no estas en multi/2p, ignorar
-        if (!isMainPlayerNote && !isTwoPlayers && !isMultiplayer) return;
-
-        // Si es multi/2p, no es tuya, PERO ocultaste al rival, ignorar
-        if (!isMainPlayerNote && (isTwoPlayers || isMultiplayer) && !showOpPopUp) {
-            return;
-        }
-
-        if (isOpponentNote) {
+        if (isOpponentSide) {
             this.currentComboP2++;
             this.spawnCombo(this.currentComboP2, true);
         } else {
@@ -177,40 +170,33 @@ class ComboLogic {
     }
 
     onGhostMiss(data) {
-        // Reutilizamos la lógica estricta de fallos
         this.onNoteMiss(data);
     }
 
     onNoteMiss(data) {
         const isMultiplayer = window.isMultiplayer || false;
-
-        const playerEnemy = isMultiplayer
-            ? (window.MultiplayerData && !window.MultiplayerData.isHost)
-            : (window.Preferences ? window.Preferences.playerEnemy : false);
-
         const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
         const isBotplay = window.Preferences ? window.Preferences.botplay : false;
         const showOpPopUp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
 
-        // FIX: Evaluar de forma estricta a quién le pertenece el fallo (incluye caídas de hold notes)
-        let isOpponentMiss = false;
+        let isOpponentSide = false;
         if (data && data.note && data.note.noteData) {
-            isOpponentMiss = data.note.noteData.p === 'op';
+            isOpponentSide = data.note.noteData.p === 'op';
         } else if (data && data.isOpponent !== undefined) {
-            isOpponentMiss = data.isOpponent;
+            isOpponentSide = data.isOpponent;
         }
 
-        const isMainPlayerMiss = playerEnemy ? isOpponentMiss : !isOpponentMiss;
+        const isLocalNote = this._isLocal(isOpponentSide);
 
-        if (isMainPlayerMiss && isBotplay) return;
+        // FIX MULTIJUGADOR: Impedir que un evento Miss forzado localmente rompa el combo de red.
+        // Si el jugador remoto falla, nos lo notificará ScoreLogic.syncOpponentStats y lo romperemos allí.
+        if (!isLocalNote && isMultiplayer) return;
 
-        if (!isMainPlayerMiss && !isTwoPlayers && !isMultiplayer) return;
+        if (isLocalNote && isBotplay) return;
+        if (!isLocalNote && !isTwoPlayers && !isMultiplayer) return;
+        if (!isLocalNote && (isTwoPlayers || isMultiplayer) && !showOpPopUp) return;
 
-        if (!isMainPlayerMiss && (isTwoPlayers || isMultiplayer) && !showOpPopUp) {
-            return;
-        }
-
-        if (isOpponentMiss) {
+        if (isOpponentSide) {
             if (this.currentComboP2 > 0) {
                 this.currentComboP2 = 0;
                 this.spawnCombo(0, true);

@@ -10,10 +10,19 @@ class FreeplayScene extends Phaser.Scene {
     this.load.audio("scrollMenu", Path.sounds + "menu/scrollMenu.ogg");
     this.load.audio("confirmMenu", Path.sounds + "menu/confirmMenu.ogg");
     this.load.audio("cancelMenu", Path.sounds + "menu/cancelMenu.ogg");
+    this.load.audio("freakyMenu", Path.music + "freakyMenu.ogg");
     Alphabet.load(this);
   }
 
   create() {
+
+    this.music = this.sound
+      .getAllPlaying()
+      .find((s) => ["introMusic", "freakyMenu"].includes(s.key));
+    if (!this.music) {
+      this.music = this.sound.add("freakyMenu", { loop: true });
+    }
+    if (!this.music.isPlaying) this.music.play();
     // --- FIX: LIMPIEZA FORZOSA DEL MULTIJUGADOR ---
     window.isMultiplayer = false;
     window.isMultiplayerWaiting = false;

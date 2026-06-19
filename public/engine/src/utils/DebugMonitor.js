@@ -11,7 +11,6 @@ class DebugMonitor {
         DebugMonitor.scene = window.HUD;
 
         // Variables de estado: Solo se declaran UNA VEZ aunque el HMR recargue el archivo.
-        // Esto permite que si estabas en modo Arquitecto, siga en Arquitecto tras recargar.
         if (DebugMonitor.mode === undefined) {
             DebugMonitor.mode = 0; // 0: Oculto, 1: Minimalista, 2: Arquitecto
             DebugMonitor.fpsHistory = [];
@@ -28,7 +27,7 @@ class DebugMonitor {
             fontFamily: 'monospace',
             fontSize: '14px',
             color: '#ffffff',
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', 
             padding: { x: 8, y: 8 }
         };
 
@@ -54,19 +53,16 @@ class DebugMonitor {
         DebugMonitor.updateListener = DebugMonitor.scene.events.on('update', DebugMonitor.update, DebugMonitor);
 
         // --- MAGIA HMR ---
-        // Cuando Phaser apague esta escena (por recarga de HMR o cambio de estado),
-        // disparamos el init() nuevamente para que espere al nuevo HUD y se reconstruya.
         DebugMonitor.scene.events.once('shutdown', () => {
             requestAnimationFrame(() => DebugMonitor.init());
         });
 
-        console.log(`%c DEBUG MONITOR %c Inyectado al HUD (HMR Safe).`, 'background: #00bcd4; color: white;', 'color: unset;');
+        console.log(`%c DEBUG MONITOR %c Injected to HUD (Network & PlayState conditional).`, 'background: #00bcd4; color: white;', 'color: unset;');
     }
 
     static toggleMode() {
         DebugMonitor.mode = (DebugMonitor.mode + 1) % 3;
 
-        // Protección en caso de presionar F3 mientras el HMR está recargando texturas
         if (!DebugMonitor.leftText || !DebugMonitor.leftText.active) return;
 
         if (DebugMonitor.mode === 0) {
@@ -97,10 +93,36 @@ class DebugMonitor {
         return '0';
     }
 
+    // 🌐 Obtener estado de la Red (Ping y Tipo de Conexión) en Inglés
+    static getNetworkInfo() {
+        let connectionType = 'Unknown';
+        let ping = 'N/A';
+
+        if (navigator.connection) {
+            // Determinar si es WiFi o Datos Móviles
+            if (navigator.connection.type) {
+                switch(navigator.connection.type) {
+                    case 'wifi': connectionType = 'Wi-Fi'; break;
+                    case 'cellular': connectionType = 'Cellular'; break;
+                    case 'none': connectionType = 'Offline'; break;
+                    case 'ethernet': connectionType = 'Ethernet'; break;
+                    default: connectionType = navigator.connection.type;
+                }
+            } else if (navigator.connection.effectiveType) {
+                connectionType = navigator.connection.effectiveType.toUpperCase();
+            }
+
+            // Obtener Latencia estimada
+            if (navigator.connection.rtt !== undefined) {
+                ping = `${navigator.connection.rtt}ms`;
+            }
+        }
+
+        return { type: connectionType, ping: ping };
+    }
+
     static update(time, delta) {
         if (DebugMonitor.mode === 0) return;
-
-        // Si el texto fue destruido a mitad del ciclo (HMR actando), abortar dibujado
         if (!DebugMonitor.leftText || !DebugMonitor.leftText.active) return;
 
         const game = DebugMonitor.scene.sys.game;
@@ -113,19 +135,21 @@ class DebugMonitor {
         let sortedFps = [...DebugMonitor.fpsHistory].sort((a, b) => a - b);
         let low1Percent = sortedFps[Math.floor(sortedFps.length * 0.01)] || fps;
 
-        let memoryStr = 'N/D';
+        let memoryStr = 'N/A';
         if (performance.memory) {
             let used = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
             let limit = (performance.memory.jsHeapSizeLimit / 1048576).toFixed(1);
             memoryStr = `${used}MB / ${limit}MB`;
         }
 
+        let network = DebugMonitor.getNetworkInfo();
+
         // --- MODO 1: MINIMALISTA ---
         if (DebugMonitor.mode === 1) {
             DebugMonitor.leftText.setText(
                 `FPS: ${Math.round(fps)} / Low: ${Math.round(low1Percent)}\n` +
                 `MS (Delta): ${delta.toFixed(2)}ms\n` +
-                `Memoria (RAM): ${memoryStr}`
+                `Network: ${network.type} | Ping: ${network.ping}`
             );
             return;
         }
@@ -143,35 +167,33 @@ class DebugMonitor {
         DebugMonitor.leftText.setText(
             `FPS: ${Math.round(fps)} / Low: ${Math.round(low1Percent)}\n` +
             `MS (Delta Time): ${delta.toFixed(2)}ms\n` +
-            `Memoria (JS Heap): ${memoryStr}\n` +
-            `VRAM / Texturas: ${texturesCount} tex\n` +
+            `Memory (JS Heap): ${memoryStr}\n` +
+            `VRAM / Textures: ${texturesCount} tex\n` +
             `Draw Calls: ${drawCalls}\n\n` +
-            `[ ENGINE SYNC ]\n` +
+            `───SYNC───\n` +
             `Audio vs Conductor: ${audioTime}ms / ${condTime}ms\n` +
             `BPM: ${bpm}\n` +
             `Beat: ${beat} | Step: ${step}\n` +
             `Input Latency: ~${delta.toFixed(1)}ms`
         );
 
-        let activeScenes = game.scene.getScenes(true).map(s => s.scene.key).join(', ');
-        let entorno = window.Neutralino ? 'Desktop (NeutralinoJS)' : 'Web';
+        let activeScenesArray = game.scene.getScenes(true).map(s => s.scene.key);
+        let activeScenes = activeScenesArray.join(', ');
+        let environment = window.Neutralino ? 'Desktop (NeutralinoJS)' : 'Web';
 
         let activeEntities = 0;
         game.scene.getScenes(true).forEach(s => activeEntities += s.children.list.length);
 
-        let hitWindow = window.PlaySettings ? window.PlaySettings.hitWindow : 160;
-        let scrollSpeed = window.PlaySettings ? window.PlaySettings.scrollSpeed : 1.0;
-        let poolSize = window.NotesPool ? window.NotesPool.length : 0;
-
-        DebugMonitor.rightText.setText(
+        // Texto derecho base con separadores limpios
+        let rightPanelText = 
             `Scene: ${activeScenes}\n` +
-            `Entorno: ${entorno}\n` +
-            `Entidades Activas: ${activeEntities}\n\n` +
-            `[ PLAY STATE ]\n` +
-            `Hit Window: ${hitWindow}ms\n` +
-            `Scroll Speed: ${scrollSpeed}\n` +
-            `Notes in Pool: ${poolSize}`
-        );
+            `Environment: ${environment}\n` +
+            `Active Entities: ${activeEntities}\n\n` +
+            `───NETWORK INFO───\n` +
+            `Connection: ${network.type}\n` +
+            `Latency (Ping): ${network.ping}`;
+
+        DebugMonitor.rightText.setText(rightPanelText);
     }
 }
 

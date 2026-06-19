@@ -17,10 +17,13 @@ class Preferences {
     static popUpPos = [50, 42];
     static showOpPopUp = true;
 
-    // NUEVA PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
+    // PREFERENCIA NUEVA: Romper combo al presionar sin nota (Ghost Miss)
+    static tapBreakCombo = false;
+
+    // PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
     static strumBackgroundOpacity = 0.0;
 
-    // NUEVAS PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
+    // PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
     static muteMissNote = false;
     static muteMissNoteEnemy = false;
 
@@ -71,7 +74,8 @@ class Preferences {
         this.popUpPos = getArray('genesis_popup_pos', this.popUpPos);
         this.showOpPopUp = getBool('genesis_show_op_popup', this.showOpPopUp);
 
-        // Cargar opacidad del fondo de strumlines
+        // Cargar opacidad y nueva opción de romper combo
+        this.tapBreakCombo = getBool('genesis_tap_break_combo', this.tapBreakCombo);
         this.strumBackgroundOpacity = getFloat('genesis_strum_bg_opacity', this.strumBackgroundOpacity);
 
         // Cargar las nuevas preferencias de sonido
@@ -98,7 +102,8 @@ class Preferences {
         localStorage.setItem('genesis_popup_pos', JSON.stringify(this.popUpPos));
         localStorage.setItem('genesis_show_op_popup', this.showOpPopUp);
 
-        // Guardar opacidad del fondo de strumlines
+        // Guardar opacidad y nueva opción de romper combo
+        localStorage.setItem('genesis_tap_break_combo', this.tapBreakCombo);
         localStorage.setItem('genesis_strum_bg_opacity', this.strumBackgroundOpacity);
 
         // Guardar las nuevas preferencias de sonido
