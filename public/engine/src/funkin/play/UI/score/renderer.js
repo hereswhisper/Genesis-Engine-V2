@@ -12,14 +12,33 @@ class ScoreRenderer {
             fontSize: '20px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 4,
-            align: 'center'
+            strokeThickness: 4
         };
 
-        // Textos Separados por Pantalla
-        this.textP2 = this.scene.add.text(w * 0.25, h * 0.95, "", fontStyle).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(100).setVisible(false);
-        this.textP1 = this.scene.add.text(w * 0.75, h * 0.95, "", fontStyle).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(100).setVisible(false);
-        this.textSingle = this.scene.add.text(w * 0.5, h * 0.95, "", fontStyle).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(100).setVisible(true);
+        // Lado Izquierdo (P2 - Enemigo)
+        // Posición X: 20 (cerca del borde izquierdo), Y: Centro de la pantalla (h * 0.5)
+        // Origen: Izquierda (0), Centro (0.5). Alineación: izquierda.
+        this.textP2 = this.scene.add.text(20, h * 0.5, "", { ...fontStyle, align: 'left' })
+            .setOrigin(0, 0.5)
+            .setScrollFactor(0)
+            .setDepth(50)
+            .setVisible(false);
+
+        // Lado Derecho (P1 - Jugador Local)
+        // Posición X: w - 20 (cerca del borde derecho), Y: Centro de la pantalla (h * 0.5)
+        // Origen: Derecha (1), Centro (0.5). Alineación: derecha.
+        this.textP1 = this.scene.add.text(w - 20, h * 0.5, "", { ...fontStyle, align: 'right' })
+            .setOrigin(1, 0.5)
+            .setScrollFactor(0)
+            .setDepth(50)
+            .setVisible(false);
+
+        // Centro Abajo (Modo un jugador normal)
+        this.textSingle = this.scene.add.text(w * 0.5, h * 0.95, "", { ...fontStyle, align: 'center' })
+            .setOrigin(0.5, 0.5)
+            .setScrollFactor(0)
+            .setDepth(100)
+            .setVisible(true);
 
         if (this.scene.referee.cameras) {
             this.scene.referee.cameras.add(this.textP2, 'ui');

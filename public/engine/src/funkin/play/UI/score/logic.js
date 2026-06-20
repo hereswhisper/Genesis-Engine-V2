@@ -218,6 +218,12 @@ class ScoreLogic {
         if (!this.renderer) return;
 
         const showOp = window.Preferences ? window.Preferences.showOpPopUp !== false : true;
+        
+        // Verifica si estamos usando el layout dividido o normal
+        const isSplit = (this.isTwoPlayers || this.isMultiplayer) && showOp;
+        
+        // Si el texto está a los lados, se usa un salto de línea. Si está abajo al centro, un separador horizontal.
+        const separator = isSplit ? '\n' : ' | ';
 
         const accP1 = this.calculateAccuracy(this.statsP1);
         const rankP1 = this.getRatingName(parseFloat(accP1));
@@ -227,11 +233,11 @@ class ScoreLogic {
         const rankP2 = this.getRatingName(parseFloat(accP2));
         const cpsP2 = this.getCPS(false);
 
-        // Nuevo formato de texto basado en tu petición (añadiendo Combo, Max Combo y CPS)
-        const textP1 = `Score: ${this.statsP1.score} | Rating: ${rankP1} | Accuracy: ${accP1}% | Misses: ${this.statsP1.misses} | Combo: ${this.statsP1.combo} | Max Combo: ${this.statsP1.maxCombo} | CPS: ${cpsP1}`;
-        const textP2 = `Score: ${this.statsP2.score} | Rating: ${rankP2} | Accuracy: ${accP2}% | Misses: ${this.statsP2.misses} | Combo: ${this.statsP2.combo} | Max Combo: ${this.statsP2.maxCombo} | CPS: ${cpsP2}`;
+        // Nuevo formato que se ajusta a columnas si está en modo dividido
+        const textP1 = `Score: ${this.statsP1.score}${separator}Rating: ${rankP1}${separator}Accuracy: ${accP1}%${separator}Misses: ${this.statsP1.misses}${separator}Combo: ${this.statsP1.combo}${separator}Max Combo: ${this.statsP1.maxCombo}${separator}CPS: ${cpsP1}`;
+        const textP2 = `Score: ${this.statsP2.score}${separator}Rating: ${rankP2}${separator}Accuracy: ${accP2}%${separator}Misses: ${this.statsP2.misses}${separator}Combo: ${this.statsP2.combo}${separator}Max Combo: ${this.statsP2.maxCombo}${separator}CPS: ${cpsP2}`;
 
-        if ((this.isTwoPlayers || this.isMultiplayer) && showOp) {
+        if (isSplit) {
             if (this.playerEnemy) {
                 this.renderer.updateSplit(textP2, textP1);
             } else {

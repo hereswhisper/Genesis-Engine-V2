@@ -18,14 +18,19 @@ class MultiRenderer {
             align: 'center'
         }).setOrigin(0.5, 0.5);
 
-        // Añadir a la cámara UI para que no se mueva con el Stage
-        if (scene.referee && scene.referee.cameras && scene.referee.cameras.uiCamera) {
-            this.bg.setScrollFactor(0).setCameras([scene.referee.cameras.uiCamera]);
-            this.statusText.setScrollFactor(0).setCameras([scene.referee.cameras.uiCamera]);
+        // Forzamos un depth súper alto para que tape todo en la UI
+        this.bg.setDepth(9998);
+        this.statusText.setDepth(9999);
 
-            // Forzamos un depth súper alto para que tape todo en la UI
-            this.bg.setDepth(9998);
-            this.statusText.setDepth(9999);
+        // Añadir a la cámara UI utilizando el mismo método del sistema para unificar capas
+        if (scene.referee && scene.referee.cameras) {
+            if (typeof scene.referee.cameras.add === 'function') {
+                scene.referee.cameras.add(this.bg, 'ui');
+                scene.referee.cameras.add(this.statusText, 'ui');
+            } else if (scene.referee.cameras.uiCamera) {
+                this.bg.setScrollFactor(0).setCameras([scene.referee.cameras.uiCamera]);
+                this.statusText.setScrollFactor(0).setCameras([scene.referee.cameras.uiCamera]);
+            }
         }
 
         this.setVisible(false);
