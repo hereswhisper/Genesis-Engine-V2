@@ -16,6 +16,7 @@
   // utils
   "src/utils/DebugMonitor.js",
   "src/utils/network/network.js",
+  "src/utils/OptionsStorage.js",
   "src/utils/Preferences.js",
   "src/utils/Conductor.js",
   "src/utils/Path.js",
@@ -104,5 +105,33 @@
   "src/funkin/menu/free/FreeplayScene.js",
 
   // multiplayer
-  "src/funkin/menu/multiplayer/MultiplayerScene.js"
+  "src/funkin/menu/multiplayer/MultiplayerScene.js",
+
+  // Options
+  "src/funkin/menu/options/utils/AlphabetRenderer.js",
+  "src/funkin/menu/options/OptionsMenuScene.js",
+  "src/funkin/menu/options/OptionsUI.js",
+
+  "src/funkin/menu/options/components/animations/AnimationsManager.js",
+  "src/funkin/menu/options/components/animations/CheckboxAnimations.js",
+  "src/funkin/menu/options/components/animations/TextAnimations.js",
+
+  "src/funkin/menu/options/components/builder/UIBuilderManager.js",
+  "src/funkin/menu/options/components/builder/UIDomCreator.js",
+  "src/funkin/menu/options/components/builder/UIRenderer.js",
+  "src/funkin/menu/options/components/builder/UIEvents.js",
+  "src/funkin/menu/options/components/builder/UIHighlight.js",
+
+  "src/funkin/menu/options/components/icons/IconsManager.js",
+  "src/funkin/menu/options/components/icons/IconsRenderer.js",
+  "src/funkin/menu/options/components/icons/IconsAnimator.js",
+
+  "src/funkin/menu/options/components/input/InputHandler.js",
+  "src/funkin/menu/options/components/input/InputCore.js",
+  "src/funkin/menu/options/components/input/InputInteractor.js",
+  "src/funkin/menu/options/components/input/InputKeybinder.js",
+
+  "src/funkin/menu/options/components/tabs/TabsManager.js",
+  "src/funkin/menu/options/components/tabs/TabsRenderer.js",
+  "src/funkin/menu/options/components/tabs/TabsAnimator.js"
 ]

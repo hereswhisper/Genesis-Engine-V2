@@ -1,9 +1,7 @@
-// src/core/phaser/config.js
-
 window.GenesisConfig = {
     type: Phaser.AUTO,
     parent: "game-container",
-    // Llamamos a la instancia para definir el ancho dinámicamente antes de que arranque el motor
+    // wide logic
     width: window.wide ? window.wide.calculatePanoramicWidth() : 1280,
     height: 720,
     dom: {
@@ -18,7 +16,6 @@ window.GenesisConfig = {
         pixelArt: false,
         antialias: true,
     },
-    // Añadimos soporte para múltiples toques (más de 10 dedos simultáneos)
     input: {
         activePointers: 12
     }

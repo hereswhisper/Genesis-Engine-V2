@@ -8,7 +8,7 @@ class MainMenuScene extends Phaser.Scene {
     this.load.image("menuBG", Path.menu + "bg/menuBG.png");
     this.load.image("menuBGMagenta", Path.menu + "bg/menuDesat.png");
 
-    this.itemNames = ["freeplay", "multiplayer"];
+    this.itemNames = ["freeplay", "multiplayer", 'options'];
 
     // Carga secuencial de Atlas
     this.itemNames.forEach((item) => {
@@ -270,7 +270,7 @@ class MainMenuScene extends Phaser.Scene {
       storymode: "StoryMenuScene",
       multiplayer: "MultiplayerScene",
       freeplay: "FreeplayScene",
-      options: "OptionsScene",
+      options: "OptionsMenuScene",
       credits: "CreditsScene",
     };
     const nextScene = scenes[id] || id;
@@ -299,4 +299,9 @@ class MainMenuScene extends Phaser.Scene {
 }
 
 window.MainMenuScene = MainMenuScene;
-window.game.scene.add("MainMenuScene", window.MainMenuScene);
+if (window.game && window.game.scene) {
+    try {
+        window.game.scene.remove("MainMenuScene");
+    } catch (e) {}
+    window.game.scene.add("MainMenuScene", window.MainMenuScene);
+}
