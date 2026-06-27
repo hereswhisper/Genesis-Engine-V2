@@ -39,7 +39,21 @@ class OptionsUI {
 
   _initBuild() {
     this.selectedTabIndex = 0;
-    this.builder.dom.createDOM(this.sections[0].option);
+    
+    const currentSection = this.sections[0];
+    let sectionId = "";
+
+    // Buscar el identificador basándose primariamente en la propiedad "id" del nuevo JSON
+    if (currentSection && currentSection.id) {
+        sectionId = currentSection.id;
+    } else if (currentSection && currentSection.option) {
+        // Fallback por compatibilidad con formatos antiguos
+        sectionId = currentSection.option;
+    } else {
+        sectionId = "unknown";
+    }
+
+    this.builder.dom.createDOM(sectionId);
     this.tabs.renderer.init();
   }
 

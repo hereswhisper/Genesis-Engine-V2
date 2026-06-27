@@ -33,8 +33,14 @@ class ScoreRenderer {
             .setDepth(50)
             .setVisible(false);
 
-        // Centro Abajo (Modo un jugador normal)
-        this.textSingle = this.scene.add.text(w * 0.5, h * 0.95, "", { ...fontStyle, align: 'center' })
+        // COMPROBAR DOWNSCROLL PARA LA POSICIÓN Y
+        const isDownscroll = window.Preferences ? window.Preferences.downscroll : false;
+        
+        // Si hay downscroll, margen superior (h * 0.05). Si no, margen inferior (h * 0.95).
+        const singleY = isDownscroll ? h * 0.05 : h * 0.95;
+
+        // Centro Abajo/Arriba (Modo un jugador normal)
+        this.textSingle = this.scene.add.text(w * 0.5, singleY, "", { ...fontStyle, align: 'center' })
             .setOrigin(0.5, 0.5)
             .setScrollFactor(0)
             .setDepth(100)

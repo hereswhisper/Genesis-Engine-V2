@@ -25,7 +25,7 @@ class MainMenuScene extends Phaser.Scene {
     this.load.audio("cancelMenu", Path.sounds + "menu/cancelMenu.ogg");
 
     // Pista base
-    this.load.audio("freakyMenu", Path.music + "freakyMenu.ogg");
+    this.load.audio("freakyMenu", Path.music + "freakymenu.ogg");
   }
 
   create() {

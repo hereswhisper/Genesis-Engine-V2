@@ -190,23 +190,24 @@ class HoldCover extends Phaser.GameObjects.Sprite {
         this.setScale(baseCoverScale * relativeScale);
         this.setAlpha(strum.alpha);
 
-        const originX = strum.originX !== undefined ? strum.originX : 0.5;
-        const originY = strum.originY !== undefined ? strum.originY : 0.5;
+        // CORRECCIÓN: Usamos el targetX y targetY de la flecha que definen su centro absoluto del carril.
+        // Esto evita que las dimensiones inconstantes de los frames (al cambiar a static/press/confirm)
+        // causen desalineación en los HoldCovers.
+        let strumCenterX = 0;
+        let strumCenterY = 0;
 
-        const staticW = strum._staticFrameWidth || strum.width || this.staticStrumWidth || 160;
-        const staticH = strum._staticFrameHeight || strum.height || this.staticStrumHeight || 160;
-
-        let stableX = strum.x;
-        let stableY = strum.y;
-        if (strum.baseX !== undefined && strum.baseY !== undefined) {
-            const staticOff = (strum.animsOffsets && strum.animsOffsets['static']) ? strum.animsOffsets['static'] : [0, 0];
-            stableX = strum.baseX + staticOff[0];
-            stableY = strum.baseY + staticOff[1];
+        if (strum.targetX !== undefined && strum.targetY !== undefined) {
+            strumCenterX = strum.targetX + (strum.animOffsetX || 0);
+            strumCenterY = strum.targetY + (strum.animOffsetY || 0);
+        } else {
+            // Fallback genérico por si se trata de un Strum modificado que no usa targetX
+            const originX = strum.originX !== undefined ? strum.originX : 0.5;
+            const originY = strum.originY !== undefined ? strum.originY : 0.5;
+            const fallbackW = strum.width || this.staticStrumWidth || 160;
+            const fallbackH = strum.height || this.staticStrumHeight || 160;
+            strumCenterX = strum.x + (fallbackW * currentScaleX * (0.5 - originX));
+            strumCenterY = strum.y + (fallbackH * currentScaleX * (0.5 - originY));
         }
-
-        // Centro inamovible anclado a la flecha estática
-        const strumCenterX = stableX + (staticW * currentScaleX * (0.5 - originX));
-        const strumCenterY = stableY + (staticH * currentScaleX * (0.5 - originY));
 
         const baseOffsetX = this.holdData.Offset ? this.holdData.Offset[0] || 0 : 0;
         const baseOffsetY = this.holdData.Offset ? this.holdData.Offset[1] || 0 : 0;

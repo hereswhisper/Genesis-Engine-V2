@@ -48,7 +48,6 @@ class BotLogic {
     if (notesLogic.activeNotes) {
       notesLogic.activeNotes.getChildren().forEach((note) => {
         const diff = note.noteData.t - songTime;
-
         if (diff <= 0) {
           if (note.noteData.p === "op" && this.enemyBot) {
             this.hitOpponent(note, strumlines);
@@ -65,7 +64,9 @@ class BotLogic {
         const isBottingOpponent = sustain.noteData.p === "op" && this.enemyBot;
 
         if (isBottingPlayer || isBottingOpponent) {
-          if (songTime >= sustain.noteData.t && songTime <= sustain.noteData.t + sustain.fullSustainLength) {
+          // CORRECCIÓN: Mantener presionada la nota hasta que el motor visual la complete.
+          // Esto evita que la IA la suelte matemáticamente antes de que se recorte el sprite.
+          if (songTime >= sustain.noteData.t && !sustain.isCompleted && !sustain.missedNote) {
             sustain.wasGoodHit = true;
             sustain.isBeingHeld = true;
 
@@ -78,10 +79,12 @@ class BotLogic {
                     sustain.strumTarget.playAnim("confirm");
                 }
             }
-
-          } else if (songTime > sustain.noteData.t + sustain.fullSustainLength) {
+          } else if (sustain.isCompleted || songTime > sustain.noteData.t + sustain.fullSustainLength + 100) {
+            // Solo soltamos cuando el renderer termina de consumirla, o con un margen de seguridad de 100ms.
             sustain.isBeingHeld = false;
-            sustain.strumTarget.playAnim("static");
+            if (sustain.strumTarget.currentState !== 'static') {
+                sustain.strumTarget.playAnim("static");
+            }
           }
         }
       });
@@ -109,7 +112,7 @@ class BotLogic {
     const strum = strumlines.playerStrums.getChildren().find((s) => s.direction === note.direction);
     if (strum) {
       note.isBotPlay = true;
-      strumlines.processHit(note, 0, strum, false); // Esto emitirá el noteHit de forma natural y procesará el Glow IA en StrumlineLogic
+      strumlines.processHit(note, 0, strum, false); 
     } else {
       note.destroy();
     }

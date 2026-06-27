@@ -110,6 +110,13 @@ class OptionsMenuScene extends Phaser.Scene {
 
   goBack() {
     this.sound.play("cancelMenu");
+    
+    // RECARGAR PREFERENCIAS: Esto lee el localStorage y actualiza todo el juego
+    // al instante para que se reflejen los cambios sin refrescar la página
+    if (window.Preferences && typeof window.Preferences.init === 'function') {
+        window.Preferences.init();
+    }
+    
     this.scene.start("MainMenuScene"); 
   }
 

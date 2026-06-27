@@ -65,11 +65,30 @@ class UIDomCreator {
                 </div>
             </div>`;
         p.domMenu.createFromHTML(miHTML); p.domMenu.setScrollFactor(0);
+        
         setTimeout(() => {
             const str = (window.ClientGlobals?.language === 'es') ? 'DESCRIPCION' : 'DESCRIPTION';
             window.AlphabetRenderer.render(this.scene, p.domMenu.node.querySelector('#canvas-desc-title'), str, 0.55);
-            p.sections.forEach(sec => window.AlphabetRenderer.render(this.scene, p.domMenu.node.querySelector(`[id="canvas-tab-${sec.option}"]`), sec.option.toUpperCase(), 0.55));
+            
+            p.sections.forEach(sec => {
+                // Obtener texto dando preferencia al inglés del objeto "label"
+                let tabText = "";
+                if (sec.label) {
+                    tabText = sec.label.en || sec.label.es || sec.id || sec.option || "UNKNOWN";
+                } else {
+                    tabText = sec.id || sec.option || "UNKNOWN";
+                }
+                
+                // Buscar el elemento canvas usando el id nuevo o la propiedad vieja como fallback alternativo
+                const targetId = sec.id || sec.option || "unknown";
+                const canvasElement = p.domMenu.node.querySelector(`[id="canvas-tab-${targetId}"]`) || p.domMenu.node.querySelector(`[id="canvas-tab-${sec.option}"]`);
+                
+                if (canvasElement) {
+                    window.AlphabetRenderer.render(this.scene, canvasElement, tabText.toUpperCase(), 0.55);
+                }
+            });
         }, 50);
+        
         p.builder.renderer.loadSectionData(defaultTitle);
     }
 }

@@ -19,7 +19,11 @@ class TabsRenderer {
     this.parent.sections.forEach((sec, idx) => {
       const isActive = idx === 0;
       const bg = isActive ? this.manager.bgActive : this.manager.bgInactive;
-      html += `<div class="opt-tab" id="tb-${sec.option}" data-idx="${idx}" data-sec="${sec.option}" style="background:${bg}; padding:0 25px; cursor:pointer; opacity:${isActive ? "1" : "0.5"}; border-right:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; height:50px; transition:transform 0.15s, background 0.2s, opacity 0.2s; position:relative; pointer-events:auto;">${this.parent.icons.renderer.getIconHTML(sec.icon)}<canvas id="canvas-tab-${sec.option}" style="pointer-events:none;"></canvas></div>`;
+      
+      // Adaptación al nuevo formato: usamos sec.id (o sec.option como fallback)
+      const secId = sec.id || sec.option || "unknown";
+      
+      html += `<div class="opt-tab" id="tb-${secId}" data-idx="${idx}" data-sec="${secId}" style="background:${bg}; padding:0 25px; cursor:pointer; opacity:${isActive ? "1" : "0.5"}; border-right:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; height:50px; transition:transform 0.15s, background 0.2s, opacity 0.2s; position:relative; pointer-events:auto;">${this.parent.icons.renderer.getIconHTML(sec.icon)}<canvas id="canvas-tab-${secId}" style="pointer-events:none;"></canvas></div>`;
     });
     return html;
   }
@@ -113,7 +117,9 @@ class TabsRenderer {
           left: active.offsetLeft - tb.offsetWidth / 2 + active.offsetWidth / 2,
           behavior: "smooth",
         });
-      const sec = p.sections.find((s) => s.option === sectionName);
+      
+      // Adaptación al nuevo formato para encontrar el ícono a animar
+      const sec = p.sections.find((s) => (s.id || s.option) === sectionName);
       if (sec) p.icons.animator.playAnimation(sec.icon);
     }
   }

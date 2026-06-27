@@ -21,8 +21,8 @@ class SustainLogic {
         const isPlayer = noteData.p === 'pl';
         const strumsGroup = isPlayer ? this.strumlines.playerStrums : this.strumlines.opponentStrums;
         const dirName = this.scene.referee.notesLogic.dirs[noteData.d];
-        const targetStrum = strumsGroup.getChildren().find(s => s.direction === dirName);
 
+        const targetStrum = strumsGroup.getChildren().find(s => s.direction === dirName);
         if (targetStrum) {
             const sustain = new window.SustainTrail(this.scene, noteData, targetStrum);
             
@@ -62,13 +62,11 @@ class SustainLogic {
             sustain.isBeingHeld = false;
             sustain.missedNote = true;
             sustain.wasGoodHit = false; 
-
             sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
             sustain.setAlpha(0.3);
 
             if (sustain.sustainLength > 10) {
                 if (window.Health) window.Health.applyMiss(false);
-
                 this.scene.events.emit('noteMiss', {
                     note: { noteData: sustain.noteData },
                     direction: sustain.direction,
@@ -85,13 +83,11 @@ class SustainLogic {
             sustain.isBeingHeld = false;
             sustain.missedNote = true;
             sustain.wasGoodHit = false; 
-
             sustain.timeOfMiss = (window.Conductor && window.Conductor.songPosition !== undefined) ? window.Conductor.songPosition : 0;
             sustain.setAlpha(0.3);
 
             if (sustain.sustainLength > 10) {
                 if (window.Health) window.Health.applyMiss(true); 
-
                 this.scene.events.emit('noteMiss', {
                     note: { noteData: sustain.noteData },
                     direction: sustain.direction,
@@ -120,20 +116,22 @@ class SustainLogic {
             const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
             const isAI = playerEnemy ? !isOpponentSustain : isOpponentSustain;
 
-            if (isAI && sustain.strumTarget && sustain.strumTarget.anims && sustain.strumTarget.anims.currentAnim) {
-                const isConfirming = sustain.strumTarget.anims.currentAnim.key.includes('confirm');
+            // IA/BOT: Lógica desvinculada por completo de la parte visual (animaciones)
+            if (isAI) {
+                // CORRECCIÓN: Comprobamos si el tiempo recae sobre el cuerpo usando !sustain.isCompleted.
+                const isWithinDuration = renderTime >= sustain.noteData.t - 100 && !sustain.isCompleted && !sustain.missedNote;
                 
-                if (isConfirming && renderTime >= sustain.noteData.t - 100 && renderTime <= sustain.noteData.t + sustain.noteData.l) {
+                if (isWithinDuration) {
                     sustain.wasEverHit = true;
                     sustain.wasGoodHit = true;
                     sustain.isBeingHeld = true;
                     sustain.missedNote = false;
                     sustain.setAlpha(sustain.alphaVal !== undefined ? sustain.alphaVal : 1.0);
-                } 
-                else if (sustain.wasEverHit && sustain.isBeingHeld && !isConfirming && renderTime < sustain.noteData.t + sustain.noteData.l) {
+                }
+                else if (sustain.wasEverHit && sustain.isBeingHeld && (sustain.isCompleted || renderTime > sustain.noteData.t + sustain.noteData.l + 100)) {
+                    // Si ya se consumió visualmente, el bot suelta la nota
                     sustain.isBeingHeld = false;
                     sustain.wasGoodHit = false;
-                    sustain.timeOfMiss = renderTime;
                 }
             }
 
@@ -151,8 +149,8 @@ class SustainLogic {
 
             if (sustain.isBeingHeld && !sustain.missedNote) {
                 const canGlow = !isAI || (isAI && window.Preferences.opponentGlow);
-
-                if (canGlow) {
+                // Solo reproducimos el glow de la flecha si está permitido
+                if (canGlow && sustain.strumTarget && sustain.strumTarget.anims) {
                     if (!sustain.strumTarget.anims.currentAnim || !sustain.strumTarget.anims.currentAnim.key.includes('confirm')) {
                         sustain.strumTarget.playAnim("confirm");
                     }

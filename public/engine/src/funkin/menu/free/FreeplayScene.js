@@ -10,7 +10,7 @@ class FreeplayScene extends Phaser.Scene {
     this.load.audio("scrollMenu", Path.sounds + "menu/scrollMenu.ogg");
     this.load.audio("confirmMenu", Path.sounds + "menu/confirmMenu.ogg");
     this.load.audio("cancelMenu", Path.sounds + "menu/cancelMenu.ogg");
-    this.load.audio("freakyMenu", Path.music + "freakyMenu.ogg");
+    this.load.audio("freakyMenu", Path.music + "freakymenu.ogg");
     Alphabet.load(this);
   }
 
