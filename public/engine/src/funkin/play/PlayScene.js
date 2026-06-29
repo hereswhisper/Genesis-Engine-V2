@@ -6,6 +6,10 @@ class PlayScene extends Phaser.Scene {
   }
 
   init() {
+    // Intento temprano para entornos web
+    if (window.Preferences && typeof window.Preferences.init === 'function') {
+        window.Preferences.init();
+    }
     this.playData = new window.PlayData(this);
   }
 
@@ -14,6 +18,13 @@ class PlayScene extends Phaser.Scene {
   }
 
   create() {
+    // FIX DE LOCALSTORAGE (NEUTRALINO): 
+    // Para el momento en que ocurre 'create', la sincronización asíncrona de 
+    // NeutralinoFS que arrojaba null en init ya terminó. Forzamos recarga.
+    if (window.Preferences && typeof window.Preferences.init === 'function') {
+        window.Preferences.init();
+    }
+
     this.sound.stopAll();
 
     this.referee = new window.PlayReferee(this);

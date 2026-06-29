@@ -3,41 +3,41 @@
 class Stage {
     static preload(scene) {
         const pd = scene.playData;
-        // OJO: El primer argumento es 'stage' (la propiedad en el JSON de la canción).
-        // El segundo es 'mainStage', que es el valor por defecto si no encuentra la propiedad.
         const stageName = pd.get('stage', 'mainStage');
         const jsonKey = 'stageData_' + stageName;
 
         if (scene.cache.json.exists(jsonKey)) {
             const cachedData = scene.cache.json.get(jsonKey);
-            // Si ya estaba en caché y fue un fallback previo, respetamos su folder 'mainStage'
             const targetFolder = cachedData._isFallback ? 'mainStage' : stageName;
             Stage.loadAssets(scene, cachedData, targetFolder);
         } else {
             let isFallback = false;
 
-            // 1. Escuchamos el éxito de la carga (ya sea la original o la de rescate)
             scene.load.once('filecomplete-json-' + jsonKey, (key, type, data) => {
-                scene.load.off('loaderror', errorHandler); // Limpiamos el detector de errores
+                scene.load.off('loaderror', errorHandler); 
 
                 if (isFallback) {
-                    data._isFallback = true; // Inyectamos bandera para el constructor
+                    data._isFallback = true; 
                 }
 
                 const targetFolder = isFallback ? 'mainStage' : stageName;
                 Stage.loadAssets(scene, data, targetFolder);
+
+                // FIX: RACE CONDITION DEL LOADER DE PHASER
+                // Si la build lee el JSON tan rápido que el loader llega a pausarse 
+                // antes de inyectar las texturas, lo obligamos a arrancar de nuevo.
+                if (!scene.load.isLoading()) {
+                    scene.load.start();
+                }
             });
 
-            // 2. Escuchamos por si ocurre un 404 (Archivo no encontrado)
             const errorHandler = (file) => {
-                // Verificamos que el error sea específicamente nuestro JSON
                 if (file.key === jsonKey) {
-                    scene.load.off('loaderror', errorHandler); // Evitar bucles infinitos
+                    scene.load.off('loaderror', errorHandler); 
 
                     if (stageName !== 'mainStage') {
                         console.warn(`[Stage] ⚠️ Stage "${stageName}" no encontrado. Ejecutando fallback a mainStage.json...`);
                         isFallback = true;
-                        // Añadimos el stage por defecto a la cola con la MISMA llave
                         scene.load.json(jsonKey, window.Path.dataStages + 'mainStage.json');
                     } else {
                         console.error(`[Stage] ❌ Error crítico: El stage de rescate (mainStage.json) no existe.`);
@@ -46,8 +46,6 @@ class Stage {
             };
 
             scene.load.on('loaderror', errorHandler);
-
-            // 3. Iniciamos la solicitud de carga original
             scene.load.json(jsonKey, window.Path.dataStages + stageName + '.json');
         }
     }
@@ -55,7 +53,6 @@ class Stage {
     static loadAssets(scene, data, stageName) {
         const folder = data.pathName || stageName;
 
-        // Precarga del background desde la raíz del JSON si es una imagen
         if (data.background && typeof data.background === 'string' && !data.background.startsWith('#')) {
             window.StageImages.preload(scene, folder, { namePath: data.background });
         }
@@ -69,11 +66,9 @@ class Stage {
 
     constructor(scene) {
         this.scene = scene;
-        // Aquí también: buscamos la propiedad 'stage', con fallback a 'mainStage'
         this.stageName = scene.playData.get('stage', 'mainStage');
         this.data = this.scene.cache.json.get('stageData_' + this.stageName) || {};
 
-        // Usamos el flag inyectado en preload para saber si debemos usar el folder por defecto 'mainStage'
         const isFallback = this.data._isFallback === true;
         this.folder = this.data.pathName || (isFallback ? 'mainStage' : this.stageName);
 
@@ -88,7 +83,6 @@ class Stage {
     }
 
     build() {
-        // Enlazar la nueva lógica separada en bg.js
         if (this.data.background && window.StageBackground) {
             window.StageBackground.apply(this.scene, this.folder, this.data.background, this.elements);
         }
