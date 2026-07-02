@@ -1,3 +1,4 @@
+// src/funkin/menu/options/components/builder/UIDomCreator.js
 class UIDomCreator {
   constructor(parent) {
     this.parent = parent;
@@ -7,6 +8,7 @@ class UIDomCreator {
   createDOM(defaultTitle) {
     const p = this.parent;
     const tabsHTML = p.tabs.renderer.getTabsHTML();
+
     const imgPath =
       (window.Path && window.Path.menuOptions ? window.Path.menuOptions : "") +
       "under-construction.png";
@@ -33,7 +35,13 @@ class UIDomCreator {
                 .desc-scroll::-webkit-scrollbar { width: 8px; }
                 .desc-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
                 .desc-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; border: 1px solid rgba(0,0,0,0.2); }
+                
+                /* Lógica CSS para ocultar slots secundarios sin asignar (NONE/0) y dejar el menú limpio */
+                .k-box[data-code="0"] { display: none !important; }
+                /* Forzamos el slot primario para que nunca desaparezca (incluso si está vacío) y no se queden sin botones */
+                .k-box[data-slot="0"] { display: flex !important; }
             </style>
+            
             <div id="opt-wrap" style="width: 96vw; height: 90vh; background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
                 <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 5px; height: 50px; position: relative; z-index: 50;">
                     <div id="btn-left" style="cursor: pointer; opacity: 0.3; pointer-events: none; transition: opacity 0.2s, transform 0.15s; transform: scale(1); z-index: 20; display: flex; align-items: center; padding: 0 5px;">
@@ -65,10 +73,10 @@ class UIDomCreator {
                                 <p id="desc-text" style="font-family: 'VCR OSD Mono', 'vcr', sans-serif; font-size: 22px; color: #eee; text-align: left; margin: 0; line-height: 1.5; white-space: pre-wrap;">Selecciona una opción...</p>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>`;
+
     p.domMenu.createFromHTML(miHTML);
     p.domMenu.setScrollFactor(0);
 
@@ -83,7 +91,6 @@ class UIDomCreator {
       );
 
       p.sections.forEach((sec) => {
-        // Obtener texto dando preferencia al inglés del objeto "label"
         let tabText = "";
         if (sec.label) {
           tabText =
@@ -92,7 +99,6 @@ class UIDomCreator {
           tabText = sec.id || sec.option || "UNKNOWN";
         }
 
-        // Buscar el elemento canvas usando el id nuevo o la propiedad vieja como fallback alternativo
         const targetId = sec.id || sec.option || "unknown";
         const canvasElement =
           p.domMenu.node.querySelector(`[id="canvas-tab-${targetId}"]`) ||
@@ -107,6 +113,18 @@ class UIDomCreator {
           );
         }
       });
+
+      // Asegurar que el CSS dinámico atrape a todas las cajas de keybind inyectándole su atributo inicial de código
+      p.domMenu.node.querySelectorAll(".k-box").forEach(box => {
+        const action = box.getAttribute("data-act");
+        const slot = parseInt(box.getAttribute("data-slot"));
+        const item = p.currentOptions.find(i => i.options.action === action);
+        if (item && item.options.defaults) {
+            const code = item.options.defaults[slot] || 0;
+            box.setAttribute("data-code", code);
+        }
+      });
+
     }, 50);
 
     p.builder.renderer.loadSectionData(defaultTitle);

@@ -1,3 +1,4 @@
+// src/funkin/menu/options/components/input/InputCore.js
 class InputCore {
   constructor(parent) {
     this.parent = parent;
@@ -10,16 +11,24 @@ class InputCore {
 
     if (p.isBinding) {
       e.preventDefault();
-      if (e.keyCode === 27) this.scene.sound.play("cancelMenu");
-      else {
-        this.scene.sound.play("confirmMenu");
-        p.input.keybinder.updateKeybindVisual(
+      if (e.keyCode === 27) {
+        this.scene.sound.play("cancelMenu");
+        p.input.keybinder.cancelBinding();
+      } else {
+        const success = p.input.keybinder.updateKeybindVisual(
           p.bindingAction,
           p.bindingSlot,
           e.keyCode,
         );
+
+        if (success) {
+          this.scene.sound.play("confirmMenu");
+        } else {
+          this.scene.sound.play("cancelMenu"); // Tono de error (Duplicado)
+        }
+        
+        p.input.keybinder.cancelBinding();
       }
-      p.input.keybinder.cancelBinding();
       return true;
     }
 
@@ -34,7 +43,9 @@ class InputCore {
       this.switchTab(1);
       return true;
     }
+
     if (window.Controls.BACK(e)) return false;
+
     if (p.maxOptions === 0 || p.currentOptions.length === 0) return true;
 
     if (p.isInteracting) {
@@ -77,6 +88,7 @@ class InputCore {
       p.builder.highlight.updateOptionHighlight(true);
       return true;
     }
+
     if (window.Controls.UI_DOWN(e)) {
       this.scene.sound.play("scrollMenu");
       p.selectedOptionIndex = Math.min(
@@ -86,11 +98,13 @@ class InputCore {
       p.builder.highlight.updateOptionHighlight(true);
       return true;
     }
+
     if (window.Controls.ACCEPT(e)) {
       this.scene.sound.play("confirmMenu");
       p.input.interactor.interactWithCurrentOption();
       return true;
     }
+
     return true;
   }
 
@@ -99,7 +113,11 @@ class InputCore {
     p.selectedTabIndex += dir;
     if (p.selectedTabIndex < 0) p.selectedTabIndex = p.sections.length - 1;
     if (p.selectedTabIndex >= p.sections.length) p.selectedTabIndex = 0;
-    const sectionName = p.sections[p.selectedTabIndex].option;
+
+    // FIX: Adaptación de compatibilidad con "id" para no causar undefined
+    const currentSection = p.sections[p.selectedTabIndex];
+    const sectionName = currentSection.id || currentSection.option || "unknown";
+    
     p.tabs.renderer.highlightTab(sectionName);
     p.builder.renderer.loadSectionData(sectionName);
   }
