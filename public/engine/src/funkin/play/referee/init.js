@@ -37,14 +37,12 @@ class PlayReferee {
     this.scoreLogic = new window.ScoreLogic(this.scene || this);
   }
 
-  // Refresca todo en tiempo real al cambiar desde el menú de pausa forzando renderizado síncrono ordenado
   updatePreferences() {
     const currentTime =
       window.Conductor && window.Conductor.songPosition !== undefined
         ? window.Conductor.songPosition
         : 0;
 
-    // 1. Strumlines (Cambios estructurales de posición)
     if (
       this.strumlines &&
       typeof this.strumlines.updatePreferences === "function"
@@ -55,10 +53,8 @@ class PlayReferee {
       this.strumlines.update(currentTime, 0);
     }
 
-    // 2. Refrescar carriles de fondo (Opacidad y visibilidad MiddleScroll)
     this.refreshStrumlineLanes();
 
-    // 3. Lógica de Salud e Interfaz de Vida
     if (
       this.healthLogic &&
       typeof this.healthLogic.updatePreferences === "function"
@@ -72,7 +68,6 @@ class PlayReferee {
       this.healthLogic.updateBar();
     }
 
-    // 4. Notas Regulares alineadas al nuevo StrumLine recalculado
     if (
       this.notesLogic &&
       typeof this.notesLogic.updatePreferences === "function"
@@ -83,7 +78,6 @@ class PlayReferee {
       this.notesLogic.update(currentTime, 0);
     }
 
-    // 5. Notas Largas / Sustains recalculados
     if (
       this.sustainLogic &&
       typeof this.sustainLogic.updatePreferences === "function"
@@ -94,7 +88,6 @@ class PlayReferee {
       this.sustainLogic.update(currentTime, 0);
     }
 
-    // 6. Marcador de Puntuación
     if (
       this.scoreLogic &&
       typeof this.scoreLogic.updatePreferences === "function"
@@ -107,13 +100,17 @@ class PlayReferee {
     const middleScroll = window.Preferences
       ? window.Preferences.middleScroll
       : "none";
+    // Ahora recupera la opacidad global recién guardada sin errores
     const laneOpacity =
       window.Preferences && window.Preferences.laneOpacity !== undefined
         ? parseFloat(window.Preferences.laneOpacity)
         : 0.7;
 
-    if (this.scene) {
-      this.scene.children.each((child) => {
+    const applyToLanes = (children) => {
+      if (!children) return;
+      children.forEach((child) => {
+        if (child.list) applyToLanes(child.list);
+
         const name = (child.name || "").toLowerCase();
         const key = (child.texture ? child.texture.key : "").toLowerCase();
 
@@ -136,8 +133,13 @@ class PlayReferee {
           }
         }
       });
+    };
+
+    if (this.scene && this.scene.children) {
+      applyToLanes(this.scene.children.list);
     }
 
+    // Esto abarca carriles adicionales introducidos por skins custom
     if (this.strumlines) {
       [
         "playerLane",
@@ -147,13 +149,15 @@ class PlayReferee {
         "bg",
         "laneBackground",
         "underlay",
+        "playerUnderlay",
+        "opponentUnderlay"
       ].forEach((prop) => {
         if (
           this.strumlines[prop] &&
           typeof this.strumlines[prop].setAlpha === "function"
         ) {
           this.strumlines[prop].setAlpha(laneOpacity);
-          if (prop.toLowerCase().includes("opponent")) {
+          if (prop.toLowerCase().includes("opponent") || prop.toLowerCase().includes("op")) {
             this.strumlines[prop].setVisible(middleScroll === "none");
           }
         }

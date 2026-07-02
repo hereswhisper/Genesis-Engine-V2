@@ -60,6 +60,75 @@ class StrumlineLogic {
     this.scene.events.once("shutdown", this.shutdown, this);
   }
 
+  // FIX: Centralizamos la creacion y actualizacion de las barras de carril
+  updateBackgrounds(positioner, baseSpacing, baseScale, offsets, hidePlyStrums, hideOppStrums, hidePlyNotes, hideOppNotes, posIsPlayerForPly, posIsPlayerForOpp) {
+    const screenHeight = this.scene.sys.game.config.height || 720;
+    const bgOffsetX = 25;
+    
+    // Aquí manda directamente laneOpacity por encima de la config default de mods para sincronizar visualmente
+    const bgOpacity = window.Preferences && window.Preferences.laneOpacity !== undefined
+      ? parseFloat(window.Preferences.laneOpacity)
+      : (window.Preferences.strumBackgroundOpacity || 0);
+
+    let drawPlyBg = false;
+    let drawOppBg = false;
+
+    if (this.middleScroll === "none") {
+      drawPlyBg = !hidePlyStrums;
+      drawOppBg = !hideOppStrums;
+    } else {
+      if (this.playerEnemy) {
+        drawOppBg = !hideOppStrums;
+        drawPlyBg = false;
+      } else {
+        drawPlyBg = !hidePlyStrums;
+        drawOppBg = false;
+      }
+    }
+
+    if (this.dirs.length > 0) {
+      const lastIdx = this.dirs.length - 1;
+
+      if (drawPlyBg) {
+        const firstPly = positioner.getPos(0, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
+        const lastPly = positioner.getPos(lastIdx, posIsPlayerForPly, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hidePlyStrums, hidePlyNotes);
+        const centerX = (firstPly.x + lastPly.x) / 2;
+        const totalWidth = Math.abs(lastPly.x - firstPly.x) + baseSpacing + 10;
+
+        if (!this.bgPly) {
+          this.bgPly = this.scene.add.rectangle(centerX + bgOffsetX, 0, totalWidth, screenHeight, 0x000000);
+          this.bgPly.setOrigin(0.5, 0).setDepth(-100);
+          if (this.scene.referee.cameras) this.scene.referee.cameras.add(this.bgPly, "ui");
+        }
+        this.bgPly.x = centerX + bgOffsetX;
+        this.bgPly.width = totalWidth;
+        this.bgPly.setAlpha(bgOpacity);
+        this.bgPly.setVisible(true);
+      } else if (this.bgPly) {
+        this.bgPly.setVisible(false);
+      }
+
+      if (drawOppBg) {
+        const firstOpp = positioner.getPos(0, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
+        const lastOpp = positioner.getPos(lastIdx, posIsPlayerForOpp, baseSpacing, baseScale, this.downscroll, offsets, this.middleScroll, this.mobileStrums, hideOppStrums, hideOppNotes);
+        const centerX = (firstOpp.x + lastOpp.x) / 2;
+        const totalWidth = Math.abs(lastOpp.x - firstOpp.x) + baseSpacing + 10;
+
+        if (!this.bgOpp) {
+          this.bgOpp = this.scene.add.rectangle(centerX + bgOffsetX, 0, totalWidth, screenHeight, 0x000000);
+          this.bgOpp.setOrigin(0.5, 0).setDepth(-100);
+          if (this.scene.referee.cameras) this.scene.referee.cameras.add(this.bgOpp, "ui");
+        }
+        this.bgOpp.x = centerX + bgOffsetX;
+        this.bgOpp.width = totalWidth;
+        this.bgOpp.setAlpha(bgOpacity);
+        this.bgOpp.setVisible(true);
+      } else if (this.bgOpp) {
+        this.bgOpp.setVisible(false);
+      }
+    }
+  }
+
   createStrumlines() {
     const baseScale = this.skins.get("gameplay.strumline.scale") || 0.7;
     const baseSpacing =
@@ -92,108 +161,8 @@ class StrumlineLogic {
       posIsPlayerForPly = false;
     }
 
-    const bgOpacity =
-      window.Preferences &&
-      window.Preferences.strumBackgroundOpacity !== undefined
-        ? window.Preferences.strumBackgroundOpacity
-        : 0;
-    const screenHeight = this.scene.sys.game.config.height || 720;
-    const bgOffsetX = 25;
-    let drawPlyBg = false;
-    let drawOppBg = false;
-
-    if (this.middleScroll === "none") {
-      drawPlyBg = !hidePlyStrums;
-      drawOppBg = !hideOppStrums;
-    } else {
-      if (this.playerEnemy) {
-        drawOppBg = !hideOppStrums;
-        drawPlyBg = false;
-      } else {
-        drawPlyBg = !hidePlyStrums;
-        drawOppBg = false;
-      }
-    }
-
-    if (bgOpacity > 0 && this.dirs.length > 0) {
-      const lastIdx = this.dirs.length - 1;
-      if (drawPlyBg) {
-        const firstPly = positioner.getPos(
-          0,
-          posIsPlayerForPly,
-          baseSpacing,
-          baseScale,
-          this.downscroll,
-          offsets,
-          this.middleScroll,
-          this.mobileStrums,
-          hidePlyStrums,
-          hidePlyNotes,
-        );
-        const lastPly = positioner.getPos(
-          lastIdx,
-          posIsPlayerForPly,
-          baseSpacing,
-          baseScale,
-          this.downscroll,
-          offsets,
-          this.middleScroll,
-          this.mobileStrums,
-          hidePlyStrums,
-          hidePlyNotes,
-        );
-        const centerX = (firstPly.x + lastPly.x) / 2;
-        const totalWidth = Math.abs(lastPly.x - firstPly.x) + baseSpacing + 10;
-        let bgPly = this.scene.add.rectangle(
-          centerX + bgOffsetX,
-          0,
-          totalWidth,
-          screenHeight,
-          0x000000,
-        );
-        bgPly.setOrigin(0.5, 0).setAlpha(bgOpacity).setDepth(-100);
-        if (this.scene.referee.cameras)
-          this.scene.referee.cameras.add(bgPly, "ui");
-      }
-      if (drawOppBg) {
-        const firstOpp = positioner.getPos(
-          0,
-          posIsPlayerForOpp,
-          baseSpacing,
-          baseScale,
-          this.downscroll,
-          offsets,
-          this.middleScroll,
-          this.mobileStrums,
-          hideOppStrums,
-          hideOppNotes,
-        );
-        const lastOpp = positioner.getPos(
-          lastIdx,
-          posIsPlayerForOpp,
-          baseSpacing,
-          baseScale,
-          this.downscroll,
-          offsets,
-          this.middleScroll,
-          this.mobileStrums,
-          hideOppStrums,
-          hideOppNotes,
-        );
-        const centerX = (firstOpp.x + lastOpp.x) / 2;
-        const totalWidth = Math.abs(lastOpp.x - firstOpp.x) + baseSpacing + 10;
-        let bgOpp = this.scene.add.rectangle(
-          centerX + bgOffsetX,
-          0,
-          totalWidth,
-          screenHeight,
-          0x000000,
-        );
-        bgOpp.setOrigin(0.5, 0).setAlpha(bgOpacity).setDepth(-100);
-        if (this.scene.referee.cameras)
-          this.scene.referee.cameras.add(bgOpp, "ui");
-      }
-    }
+    // Inicializar y dibujar los carriles base
+    this.updateBackgrounds(positioner, baseSpacing, baseScale, offsets, hidePlyStrums, hideOppStrums, hidePlyNotes, hideOppNotes, posIsPlayerForPly, posIsPlayerForOpp);
 
     this.dirs.forEach((dir, i) => {
       const pOpp = positioner.getPos(
@@ -245,7 +214,6 @@ class StrumlineLogic {
   }
 
   handleInput(e, isDown) {
-    // IMPORTANTE: Retornamos de inmediato si isGamePaused es true
     if (
       e.repeat ||
       !this.playerStrums ||
@@ -516,7 +484,6 @@ class StrumlineLogic {
   }
 
   updatePreferences() {
-    // 1. Refrescar variables locales
     this.downscroll = window.Preferences.downscroll;
     this.ghostTapping = window.Preferences.ghostTapping;
     if (!this.twoPlayers) {
@@ -545,7 +512,6 @@ class StrumlineLogic {
       posIsPlayerForPly = false;
     }
 
-    // 2. Extraer parámetros de Skin
     const baseScale = this.skins.get("gameplay.strumline.scale") || 0.7;
     const baseSpacing =
       this.skins.get("gameplay.strumline.spacing") || 160 * baseScale;
@@ -554,7 +520,9 @@ class StrumlineLogic {
     ];
     const positioner = new window.ClassicalPosition(this.scene);
 
-    // 3. Aplicar al grupo Rival
+    // FIX: Actualizar los rectángulos del carril para reaccionar al cambio de opacidad y MiddleScroll de Inmediato
+    this.updateBackgrounds(positioner, baseSpacing, baseScale, offsets, hidePlyStrums, hideOppStrums, hidePlyNotes, hideOppNotes, posIsPlayerForPly, posIsPlayerForOpp);
+
     this.opponentStrums.getChildren().forEach((opp, i) => {
       const pOpp = positioner.getPos(
         i,
@@ -576,7 +544,6 @@ class StrumlineLogic {
       opp.setAlpha(pOpp.strumAlpha);
     });
 
-    // 4. Aplicar al grupo Jugador
     this.playerStrums.getChildren().forEach((ply, i) => {
       const pPly = positioner.getPos(
         i,

@@ -1,44 +1,52 @@
 // src/funkin/play/data/song.js
-
 class Song {
   static preload(scene) {
     try {
       const pd = scene.playData;
       const path = window.Path.songs + pd.songId + "/song/";
-
-      const timestamp = Date.now();
-      const randomId = Math.floor(Math.random() * 100000);
+      
       const bpmHash = pd.get("audio.bpm", 100);
-      pd.uniqueSessionId = `${pd.songId}_${bpmHash}_${timestamp}_${randomId}`;
-
+      pd.uniqueSessionId = `${pd.songId}_${bpmHash}`;
       pd.instKey = `inst_${pd.uniqueSessionId}`;
       pd.voicesPlayerKey = `voicesPlayer_${pd.uniqueSessionId}`;
       pd.voicesOppKey = `voicesOpp_${pd.uniqueSessionId}`;
+      
+      // FIX: Cache-buster para evitar ERR_CONTENT_LENGTH_MISMATCH. 
+      // Cuando Phaser aborta una descarga (ej. reinicio rápido), el navegador a veces corrompe 
+      // la caché en disco de esa URL. Esto fuerza una nueva petición limpia si el audio no está en RAM.
+      const cb = `?cb=${Date.now()}`;
 
-      scene.load.audio(
-        pd.instKey,
-        path + pd.get("audio.instrumental.inst.file", "Inst.ogg"),
-      );
-
+      if (!scene.cache.audio.exists(pd.instKey)) {
+        scene.load.audio(
+          pd.instKey,
+          path + pd.get("audio.instrumental.inst.file", "Inst.ogg") + cb
+        );
+      }
+      
       if (pd.get("audio.needsVoices", true)) {
         if (!pd.get("audio.multiVocal", false)) {
-          scene.load.audio(pd.voicesPlayerKey, path + "Voices.ogg");
+          if (!scene.cache.audio.exists(pd.voicesPlayerKey)) {
+            scene.load.audio(pd.voicesPlayerKey, path + "Voices.ogg" + cb);
+          }
         } else {
-          scene.load.audio(
-            pd.voicesPlayerKey,
-            path + pd.get("audio.vocals.player.file", "Voices-bf.ogg"),
-          );
-          scene.load.audio(
-            pd.voicesOppKey,
-            path + pd.get("audio.vocals.opponent.file", "Voices-pico.ogg"),
-          );
+          if (!scene.cache.audio.exists(pd.voicesPlayerKey)) {
+            scene.load.audio(
+              pd.voicesPlayerKey,
+              path + pd.get("audio.vocals.player.file", "Voices-bf.ogg") + cb
+            );
+          }
+          if (!scene.cache.audio.exists(pd.voicesOppKey)) {
+            scene.load.audio(
+              pd.voicesOppKey,
+              path + pd.get("audio.vocals.opponent.file", "Voices-pico.ogg") + cb
+            );
+          }
         }
       }
 
       ["missnote1", "missnote2", "missnote3"].forEach((missPath) => {
-        const fullUrl = window.Path.skins + "Funkin/miss/" + missPath + ".ogg";
+        const fullUrl = window.Path.skins + "Funkin/miss/" + missPath + ".ogg" + cb;
         const cacheKey = `default_${missPath}_miss`;
-
         if (!scene.cache.audio.exists(cacheKey)) {
           scene.load.audio(cacheKey, fullUrl);
         }
@@ -49,19 +57,16 @@ class Song {
         try {
           const basePath = data?.global?.basePath || "Funkin";
           const uniqueSkinId = pd.uniqueSkinId;
-
           let misses = data?.misses?.sounds?.path;
 
           if (misses) {
             if (typeof misses === "string") misses = [misses];
-
             if (Array.isArray(misses)) {
               let addedFiles = false;
               misses.forEach((missPath) => {
                 let finalPath = missPath;
                 if (!finalPath.match(/\.[0-9a-z]+$/i)) finalPath += ".ogg";
-
-                const fullUrl = window.Path.skins + basePath + "/" + finalPath;
+                const fullUrl = window.Path.skins + basePath + "/" + finalPath + cb;
                 const cacheKey = `${basePath}_${missPath}_${uniqueSkinId}_miss`;
 
                 if (!scene.cache.audio.exists(cacheKey)) {
@@ -88,19 +93,17 @@ class Song {
         );
       }
     } catch (e) {
-      console.error("[Song] Error crítico en preload:", e);
+      console.error("[Song] Error cr tico en preload:", e);
     }
   }
 
   constructor(scene) {
     this.scene = scene;
     const pd = scene.playData;
-
     this.bpm = pd.get("audio.bpm", 100);
     this.origin = pd.origin;
     this.needsVoices = pd.get("audio.needsVoices", true);
     this.multiVocal = pd.get("audio.multiVocal", false);
-
     this.muteMiss = false;
 
     this.instKey = pd.instKey;
@@ -110,7 +113,6 @@ class Song {
     this.instTrack = null;
     this.playerTrack = null;
     this.opponentTrack = null;
-
     this.hasStarted = false;
 
     window.Conductor.mapTimeChanges([
@@ -144,9 +146,8 @@ class Song {
         this.instTrack = this.scene.sound.add(this.instKey);
         this.instTrack.on("complete", () => this.onSongEnd());
       } else {
-        console.warn(
-          `[Song] Instrumental no encontrado en cache: ${this.instKey}`,
-        );
+        // FIX: Evita que el juego crashee totalmente si por algún motivo la red falló al cargar
+        console.warn(`[Song] Instrumental no encontrado en cache: ${this.instKey}. Se jugará sin música principal.`);
       }
 
       if (this.needsVoices) {
@@ -155,6 +156,7 @@ class Song {
           if (!this.instTrack)
             this.playerTrack.on("complete", () => this.onSongEnd());
         }
+
         if (
           this.multiVocal &&
           this.scene.cache.audio.exists(this.voicesOppKey)
@@ -173,8 +175,8 @@ class Song {
     try {
       this.missSoundKeys = [];
       this.missVolume = 1.0;
-
       const skins = this.scene.referee.skins;
+
       if (!skins) return;
 
       let missPaths = skins.get("misses.sounds.path");
@@ -421,34 +423,9 @@ class Song {
         }
       });
 
-      if (this.scene && this.scene.cache && this.scene.cache.audio) {
-        if (this.instKey && this.scene.cache.audio.exists(this.instKey))
-          this.scene.cache.audio.remove(this.instKey);
-        if (
-          this.voicesPlayerKey &&
-          this.scene.cache.audio.exists(this.voicesPlayerKey)
-        )
-          this.scene.cache.audio.remove(this.voicesPlayerKey);
-        if (
-          this.voicesOppKey &&
-          this.scene.cache.audio.exists(this.voicesOppKey)
-        )
-          this.scene.cache.audio.remove(this.voicesOppKey);
-
-        if (this.missSoundKeys) {
-          this.missSoundKeys.forEach((key) => {
-            if (this.scene.cache.audio.exists(key)) {
-              this.scene.cache.audio.remove(key);
-            }
-          });
-        }
-      }
-
       this.instTrack = null;
       this.playerTrack = null;
       this.opponentTrack = null;
-
-      // Se elimina scene.sound.stopAll() para evitar destruir sonidos del menú de pausa
 
       if (window.Conductor) {
         window.Conductor.songPosition = 0;
@@ -463,19 +440,18 @@ class Song {
       this.shutdown();
       const target =
         this.origin === "freeplay" ? "FreeplayScene" : "MainMenuScene";
+
       if (window.transitionTo) {
         window.transitionTo(this.scene, target);
       } else {
         this.scene.scene.start(target);
       }
     } catch (e) {
-      console.error("[Song] Error al finalizar la canción:", e);
+      console.error("[Song] Error al finalizar la canci n:", e);
     }
   }
 
   update(time, delta) {
-    // CORRECCIÓN: Si no ha arrancado la música, el tiempo debe avanzar para que
-    // el contador negativo suba y desplace las flechas en el CountDown.
     if (!this.hasStarted) {
       window.Conductor.songPosition += delta;
       return;
@@ -524,12 +500,11 @@ class Song {
           this.instTrack.seek = masterTime;
         }
       } else {
-        // FALLBACK EXTREMO: Si todos los audios fallaron, se usa el tiempo de los fotogramas (delta)
+        // Fallback en caso de que todo esté null (ej. XHR error en local)
         window.Conductor.songPosition += delta;
         window.Conductor.update(window.Conductor.songPosition);
       }
     } catch (e) {
-      // Última barrera para que el juego nunca se congele
       window.Conductor.songPosition += delta;
       window.Conductor.update(window.Conductor.songPosition);
     }

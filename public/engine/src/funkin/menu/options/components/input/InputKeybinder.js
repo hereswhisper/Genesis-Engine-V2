@@ -1,3 +1,4 @@
+// src/funkin/menu/options/components/input/InputKeybinder.js
 class InputKeybinder {
   constructor(parent) {
     this.parent = parent;
@@ -49,14 +50,18 @@ class InputKeybinder {
         0.4,
       );
 
-      // GUARDADO PARA KEYBINDS
+      // GUARDADO PARA KEYBINDS Y SINCRONIZACIÓN EN TIEMPO REAL
       const item = this.parent.currentOptions.find(
         (i) => i.options.action === action,
       );
       if (item) {
-        if (!item.options.defaults) item.options.defaults = [0, 0];
+        if (!item.options.defaults) item.options.defaults = [];
         item.options.defaults[slot] = code;
         window.OptionsStorage.save(item.id, "keybind", item.options.defaults);
+        
+        if (window.Controls && window.Controls.PCKeyBinds) {
+          window.Controls.PCKeyBinds[action] = item.options.defaults;
+        }
       }
     }
   }

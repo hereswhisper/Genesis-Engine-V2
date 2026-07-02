@@ -4,6 +4,20 @@ class PauseMenuRenderer {
     this.scene = scene;
     this.menuItemsText = [];
     this.transitioningOut = [];
+
+    if (this.scene.textures.exists("checkboxThingie") && !this.scene.anims.exists("checkbox_check")) {
+      const checkFrames = [];
+      for (let i = 0; i <= 10; i++) {
+        const fStr = (i < 10 ? "0" : "") + i;
+        checkFrames.push({ key: "checkboxThingie", frame: "Check Box selecting animation00" + fStr });
+      }
+      this.scene.anims.create({
+        key: "checkbox_check",
+        frames: checkFrames,
+        frameRate: 24,
+        repeat: 0
+      });
+    }
   }
 
   buildMenu(options, selectedIndex, direction = 0) {
@@ -13,7 +27,6 @@ class PauseMenuRenderer {
     oldItems.forEach((item) => {
       item.targetOffsetX =
         direction === 1 ? -this.scene.scale.width : this.scene.scale.width;
-
       const targetsToTween = item.checkbox ? [item, item.checkbox] : item;
 
       this.scene.tweens.add({
@@ -53,6 +66,7 @@ class PauseMenuRenderer {
         true,
         1.0,
       );
+
       alphabet.isMenuItem = true;
       alphabet.targetY = i - selectedIndex;
       alphabet.startOffsetX = startXOffset;
@@ -76,8 +90,13 @@ class PauseMenuRenderer {
           "checkboxThingie",
           frameName,
         );
+        alphabet.checkbox.setOrigin(0, 0); 
         alphabet.checkbox.setScale(0.75);
         alphabet.checkbox.setAlpha(alphaTarget);
+
+        // Inicializamos los offsets visuales dependiendo de su estado
+        alphabet.checkbox.customOffsetX = isChecked ? -5 : 0;
+        alphabet.checkbox.customOffsetY = isChecked ? -5 : 0;
       }
 
       this.menuItemsText.push(alphabet);
@@ -97,10 +116,26 @@ class PauseMenuRenderer {
   updateCheckbox(index, isChecked) {
     const item = this.menuItemsText[index];
     if (item && item.checkbox) {
-      const frameName = isChecked
-        ? "Check Box Selected Static0000"
-        : "Check Box unselected0000";
-      item.checkbox.setFrame(frameName);
+      if (isChecked) {
+        item.checkbox.play("checkbox_check", true);
+        
+        // Offset dinámico para la animación (es más grande, necesita compensación)
+        item.checkbox.customOffsetX = -25;
+        item.checkbox.customOffsetY = -30;
+
+        item.checkbox.once("animationcomplete", () => {
+          item.checkbox.setFrame("Check Box Selected Static0000");
+          // Offset para cuando está estático pero seleccionado
+          item.checkbox.customOffsetX = -5;
+          item.checkbox.customOffsetY = -5;
+        });
+      } else {
+        item.checkbox.stop();
+        item.checkbox.setFrame("Check Box unselected0000");
+        // Restaurar offset cuando está deseleccionado
+        item.checkbox.customOffsetX = 0;
+        item.checkbox.customOffsetY = 0;
+      }
     }
   }
 
@@ -121,6 +156,7 @@ class PauseMenuRenderer {
 
         if (item.currentOffsetX === undefined)
           item.currentOffsetX = item.startOffsetX || 0;
+
         item.currentOffsetX +=
           ((item.targetOffsetX || 0) - item.currentOffsetX) * lerpFactor;
 
@@ -131,8 +167,12 @@ class PauseMenuRenderer {
         item.x += (targetXPos - item.x) * lerpFactor;
 
         if (item.checkbox) {
-          item.checkbox.x = item.x + item.width + 70;
-          item.checkbox.y = item.y;
+          // Compensamos el desplazamiento con los offsets dinámicos de sus frames
+          const cOffX = item.checkbox.customOffsetX || 0;
+          const cOffY = item.checkbox.customOffsetY || 0;
+          
+          item.checkbox.x = item.x + item.width + 30 + cOffX;
+          item.checkbox.y = item.y - 45 + cOffY;
         }
       });
     };
@@ -141,4 +181,5 @@ class PauseMenuRenderer {
     processItems(this.transitioningOut);
   }
 }
+
 window.PauseMenuRenderer = PauseMenuRenderer;

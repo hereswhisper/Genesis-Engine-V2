@@ -1,4 +1,5 @@
 // src/funkin/play/UI/pause/PauseScene.js
+
 class PauseScene extends Phaser.Scene {
   constructor() {
     super({ key: "PauseScene" });
@@ -68,7 +69,15 @@ class PauseScene extends Phaser.Scene {
         loop: musicData.loop !== undefined ? musicData.loop : true,
         volume: 0.8,
       });
+      
       this.pauseMusic.play();
+
+      // Implementación Modular del Filtro de Ecualización (Inicia apagado por defecto)
+      if (window.PauseAudioFilter) {
+        this.audioFilter = new window.PauseAudioFilter(this.sound, this.pauseMusic);
+      } else {
+        console.warn("PauseAudioFilter no está definido. Asegúrate de cargar el archivo JS antes.");
+      }
     }
 
     // Si es partida multijugador, forzar la continuidad visual del PlayScene en segundo plano
@@ -91,17 +100,17 @@ class PauseScene extends Phaser.Scene {
     });
   }
 
+  // Activa o desactiva el filtro si estamos dentro de un sub-menú
   updateMusicEffect() {
-    if (!this.pauseMusic) return;
-    // Si hay historial de navegación, significa que estamos dentro de una subopción (efecto ahogado)
-    if (this.logic.history.length > 0) {
-      this.pauseMusic.setVolume(0.25);
-      if (typeof this.pauseMusic.setRate === "function")
-        this.pauseMusic.setRate(0.75);
+    if (!this.audioFilter) return;
+
+    // Si history es mayor a 0, significa que entramos en Quick Options o algún otro sub-menú
+    const isSubmenu = this.logic.history.length > 0;
+    
+    if (isSubmenu) {
+      this.audioFilter.enable();
     } else {
-      this.pauseMusic.setVolume(0.8);
-      if (typeof this.pauseMusic.setRate === "function")
-        this.pauseMusic.setRate(1.0);
+      this.audioFilter.disable();
     }
   }
 
@@ -139,11 +148,11 @@ class PauseScene extends Phaser.Scene {
       if (opt.action === "submenu") {
         const dir = this.logic.navigateForward(opt.submenu);
         this.rebuildUI(dir);
-        this.updateMusicEffect();
+        this.updateMusicEffect(); // Refrescar el efecto al avanzar de menú
       } else if (opt.action === "back") {
         const dir = this.logic.navigateBack();
         if (dir !== 0) this.rebuildUI(dir);
-        this.updateMusicEffect();
+        this.updateMusicEffect(); // Refrescar el efecto al retroceder de menú
       } else if (opt.action === "toggle" && opt.type === "check") {
         const isNowTrue = this.logic.togglePreference(opt.pref);
 
@@ -169,7 +178,7 @@ class PauseScene extends Phaser.Scene {
       const dir = this.logic.navigateBack();
       if (dir !== 0) {
         this.rebuildUI(dir);
-        this.updateMusicEffect();
+        this.updateMusicEffect(); // Refrescar el efecto al usar el botón escape
       }
     }
   }
@@ -192,6 +201,14 @@ class PauseScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.renderer) this.renderer.update(delta);
+
+    // FIX: Actualizar visualmente la PlayScene en 2do plano aunque esté pausada
+    if (!this.isMultiplayer && this.referee) {
+      if (this.referee.strumlines && typeof this.referee.strumlines.update === "function") {
+        const currentTime = window.Conductor && window.Conductor.songPosition !== undefined ? window.Conductor.songPosition : 0;
+        this.referee.strumlines.update(currentTime, delta);
+      }
+    }
   }
 
   handleAction(action) {
@@ -233,11 +250,16 @@ class PauseScene extends Phaser.Scene {
       this.pauseMusic.destroy();
       this.pauseMusic = null;
     }
+    
+    // Limpiar nodos de audio usando la nueva clase modular
+    if (this.audioFilter) {
+      this.audioFilter.disconnect();
+      this.audioFilter = null;
+    }
   }
 
   closePauseMenu() {
     this.cleanupInputs();
-    // Si es multijugador, no llamamos a togglePause() para evitar alterar los estados de sincronización remotos
     if (!this.isMultiplayer && this.referee && this.referee.pauseLogic) {
       this.referee.pauseLogic.togglePause();
     }

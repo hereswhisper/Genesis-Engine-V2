@@ -34,8 +34,12 @@ class Strum extends Phaser.GameObjects.Sprite {
       this.setFrame(firstFrame);
     }
 
-    this.baseX = x - (this.width * scaleVal) / 2;
-    this.baseY = y - (this.height * scaleVal) / 2;
+    // Guardar el ancho y alto estático real original
+    this.staticWidth = this.width;
+    this.staticHeight = this.height;
+
+    this.baseX = x - (this.staticWidth * scaleVal) / 2;
+    this.baseY = y - (this.staticHeight * scaleVal) / 2;
 
     this.animOffsetX = 0;
     this.animOffsetY = 0;
@@ -49,8 +53,13 @@ class Strum extends Phaser.GameObjects.Sprite {
 
   applyScale(newScale) {
     this.setScale(newScale);
-    this.baseX = this.targetX - (this.width * newScale) / 2;
-    this.baseY = this.targetY - (this.height * newScale) / 2;
+    // Usar las dimensiones estáticas capturadas pre-animación
+    const refWidth = this.staticWidth || this.width;
+    const refHeight = this.staticHeight || this.height;
+    
+    this.baseX = this.targetX - (refWidth * newScale) / 2;
+    this.baseY = this.targetY - (refHeight * newScale) / 2;
+    
     this.playAnim(this.currentState || "static");
 
     if (this.hitbox) {
@@ -187,18 +196,13 @@ class Strum extends Phaser.GameObjects.Sprite {
 
   update(time, delta) {}
 
-  // SOLUCIÓN AL ERROR DE PHASER (indexOf)
   cleanupHitboxInput() {
     if (this.hitbox) {
       try {
-        // Durante el shutdown/reload, el plugin de inputs de Phaser destruye sus listas internamente.
-        // Llamar a disableInteractive() causaba un error 'indexOf' porque el array ya no existía.
-        // Lo envolvemos en un try/catch para ignorar silenciosamente el error durante el apagado.
         if (this.hitbox.input) {
           this.hitbox.disableInteractive();
         }
       } catch (e) {
-        // Silenciamos la advertencia. La memoria igual se libera con destroy().
       }
     }
   }

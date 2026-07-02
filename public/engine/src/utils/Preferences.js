@@ -22,6 +22,7 @@ class Preferences {
 
   // PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
   static strumBackgroundOpacity = 0.0;
+  static laneOpacity = 0.7; // FIX: Se agregó para que el Quick Options pueda leerla/guardarla
 
   // PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
   static muteMissNote = false;
@@ -82,14 +83,13 @@ class Preferences {
     this.popUpPos = getArray("genesis_popup_pos", this.popUpPos);
     this.showOpPopUp = getBool("genesis_show_op_popup", this.showOpPopUp);
 
-    // Cargar opacidad y nueva opción de romper combo
     this.tapBreakCombo = getBool("genesis_tap_break_combo", this.tapBreakCombo);
     this.strumBackgroundOpacity = getFloat(
       "genesis_strum_bg_opacity",
       this.strumBackgroundOpacity,
     );
+    this.laneOpacity = getFloat("genesis_lane_opacity", this.laneOpacity); // FIX
 
-    // Cargar las nuevas preferencias de sonido
     this.muteMissNote = getBool("genesis_mute_miss_note", this.muteMissNote);
     this.muteMissNoteEnemy = getBool(
       "genesis_mute_miss_note_enemy",
@@ -116,14 +116,13 @@ class Preferences {
     localStorage.setItem("genesis_popup_pos", JSON.stringify(this.popUpPos));
     localStorage.setItem("genesis_show_op_popup", this.showOpPopUp);
 
-    // Guardar opacidad y nueva opción de romper combo
     localStorage.setItem("genesis_tap_break_combo", this.tapBreakCombo);
     localStorage.setItem(
       "genesis_strum_bg_opacity",
       this.strumBackgroundOpacity,
     );
+    localStorage.setItem("genesis_lane_opacity", this.laneOpacity); // FIX
 
-    // Guardar las nuevas preferencias de sonido
     localStorage.setItem("genesis_mute_miss_note", this.muteMissNote);
     localStorage.setItem(
       "genesis_mute_miss_note_enemy",

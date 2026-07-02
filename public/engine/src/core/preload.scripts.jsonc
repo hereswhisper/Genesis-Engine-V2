@@ -112,6 +112,7 @@
   "src/funkin/play/UI/pause/PauseScene.js",
   "src/funkin/play/UI/pause/PauseMenuLogic.js",
   "src/funkin/play/UI/pause/PauseMenuRenderer.js",
+  "src/funkin/play/UI/pause/PauseAudioFilter.js",
 
   // Options
   "src/funkin/menu/options/utils/AlphabetRenderer.js",

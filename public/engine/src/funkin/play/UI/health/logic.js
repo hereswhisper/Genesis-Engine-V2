@@ -1,19 +1,15 @@
 // src/funkin/play/UI/health/logic.js
-
 class HealthLogic {
   static preload(scene) {
     const pd = scene.playData;
     const jsonKey = pd.skinJsonKey;
-
     const loadHealthBar = (data) => {
       const basePath = data?.global?.basePath || "Funkin";
       const uniqueSkinId = pd.uniqueSkinId;
-
       const barPath = data?.ui?.bars?.health?.path || "bars/healthBar";
-
       let finalPath = barPath;
-      if (!finalPath.match(/\.[0-9a-z]+$/i)) finalPath += ".png";
 
+      if (!finalPath.match(/\.[0-9a-z]+$/i)) finalPath += ".png";
       const fullUrl = window.Path.skins + basePath + "/" + finalPath;
       const cacheKey = `health_bar_${uniqueSkinId}`;
 
@@ -33,7 +29,6 @@ class HealthLogic {
 
   constructor(scene) {
     this.scene = scene;
-
     // Rango de Valores: Mínimo 0 (Oponente P2 gana), Máximo 2 (Jugador P1 gana)
     this.health = 1.0;
     this.healthLerp = 1.0;
@@ -41,7 +36,6 @@ class HealthLogic {
     this.isGameOver = false;
 
     window.Health = this;
-
     this.renderer = new window.HealthRenderer(this.scene, this);
   }
 
@@ -64,7 +58,6 @@ class HealthLogic {
     const isBotplay = window.Preferences ? window.Preferences.botplay : false;
 
     const isMainPlayerAction = playerEnemy ? isOpponent : !isOpponent;
-
     if (isMainPlayerAction && isBotplay) return;
     if (!isTwoPlayers && !isMainPlayerAction) return;
 
@@ -110,7 +103,6 @@ class HealthLogic {
     const isBotplay = window.Preferences ? window.Preferences.botplay : false;
 
     const isMainPlayerAction = playerEnemy ? isOpponent : !isOpponent;
-
     if (isMainPlayerAction && isBotplay) return;
     if (!isTwoPlayers && !isMainPlayerAction) return;
 
@@ -137,7 +129,6 @@ class HealthLogic {
     const isBotplay = window.Preferences ? window.Preferences.botplay : false;
 
     const isMainPlayerAction = playerEnemy ? isOpponent : !isOpponent;
-
     if (isMainPlayerAction && isBotplay) return;
     if (!isTwoPlayers && !isMainPlayerAction) return;
 
@@ -164,7 +155,6 @@ class HealthLogic {
     const isBotplay = window.Preferences ? window.Preferences.botplay : false;
 
     const isMainPlayerAction = playerEnemy ? isOpponent : !isOpponent;
-
     if (isMainPlayerAction && isBotplay) return;
     if (!isTwoPlayers && !isMainPlayerAction) return;
 
@@ -192,7 +182,6 @@ class HealthLogic {
     if (this.health <= 0) {
       this.health = 0;
       this.currentHealth = 0;
-
       if (!this.isGameOver) {
         this.isGameOver = true;
         if (isTwoPlayers || isMultiplayer) {
@@ -214,7 +203,6 @@ class HealthLogic {
     } else if (this.health >= 2) {
       this.health = 2;
       this.currentHealth = 2;
-
       if (!this.isGameOver) {
         this.isGameOver = true;
         if (isTwoPlayers || isMultiplayer) {
@@ -241,20 +229,29 @@ class HealthLogic {
   }
 
   update(time, delta) {
+    const isBotplay = window.Preferences ? window.Preferences.botplay : false;
+
     // FIX: Reestructurar salud en función estricta de Scores (Multijugador)
     if (window.isMultiplayer && this.scene.scoreLogic) {
       let scoreP1 = this.scene.scoreLogic.statsP1.score;
       let scoreP2 = this.scene.scoreLogic.statsP2.score;
-
       // La base es 1 (centro). Sumamos la diferencia (Tug of War / Tira y Afloja)
       // Se necesitan 5000 puntos de ventaja limpios para aplastar por completo al rival
       let diff = scoreP1 - scoreP2;
       this.health = 1 + diff / 5000;
-
       this.health = Phaser.Math.Clamp(this.health, 0, 2);
       this.currentHealth = this.health;
-
       this.checkGameOver(this.scene);
+    } 
+    // NUEVO: Lógica Automática para Botplay (Sobrescribe barra al 100% de la entidad activa)
+    else if (isBotplay) {
+      const playerEnemy = window.Preferences ? window.Preferences.playerEnemy : false;
+      if (playerEnemy) {
+        this.health = 0.0; // Gana el Oponente (100% a favor de la izquierda)
+      } else {
+        this.health = 2.0; // Gana el Jugador (100% a favor de la derecha)
+      }
+      this.currentHealth = this.health;
     }
 
     this.healthLerp = this.healthLerp + (this.health - this.healthLerp) * 0.15;

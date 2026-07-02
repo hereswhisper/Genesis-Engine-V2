@@ -89,6 +89,11 @@ class FileSystem {
   static applyMonkeyPatches() {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
+      // FIX: Si no hay mods activos, no alteramos la petición nativa
+      if (!FileSystem.activeMods || FileSystem.activeMods.length === 0) {
+        return originalFetch.apply(window, args);
+      }
+
       const url = args[0];
       if (typeof url === "string" && url.includes("assets/")) {
         const cleanPath = url.substring(url.indexOf("assets/") + 7);
@@ -145,6 +150,14 @@ class FileSystem {
 
     XMLHttpRequest.prototype.send = function (body) {
       const url = this._reqUrl;
+
+      // FIX: Bypass completo si no hay mods. Evita que la función asíncrona corrompa 
+      // el ciclo de vida síncrono que espera Phaser para descargar media.
+      if (!FileSystem.activeMods || FileSystem.activeMods.length === 0) {
+        originalSend.call(this, body);
+        return;
+      }
+
       if (url && typeof url === "string" && url.includes("assets/")) {
         const cleanPath = url.substring(url.indexOf("assets/") + 7);
 
