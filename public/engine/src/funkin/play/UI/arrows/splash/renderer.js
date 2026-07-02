@@ -36,18 +36,21 @@ class NoteSplash extends Phaser.GameObjects.Sprite {
     this.setVisible(true);
 
     const jsonAlpha = skinData.alpha !== undefined ? skinData.alpha : 1;
-    const targetAlpha = strumTarget.noteAlpha !== undefined ? strumTarget.noteAlpha : jsonAlpha;
+    const targetAlpha =
+      strumTarget.noteAlpha !== undefined ? strumTarget.noteAlpha : jsonAlpha;
     this.setAlpha(targetAlpha);
 
     if (targetAlpha <= 0) {
-        this.setVisible(false);
-        this.setActive(false);
-        return;
+      this.setVisible(false);
+      this.setActive(false);
+      return;
     }
 
     const jsonScale = skinData.scale !== undefined ? skinData.scale : 1;
-    const strumScale = strumTarget.scaleX !== undefined ? strumTarget.scaleX : 0.7;
-    const baseStrumScale = this.scene.referee.skins.get("gameplay.strumline.scale") || 0.7;
+    const strumScale =
+      strumTarget.scaleX !== undefined ? strumTarget.scaleX : 0.7;
+    const baseStrumScale =
+      this.scene.referee.skins.get("gameplay.strumline.scale") || 0.7;
 
     const amplificationRatio = strumScale / baseStrumScale;
     const finalScale = jsonScale * amplificationRatio;
@@ -63,8 +66,10 @@ class NoteSplash extends Phaser.GameObjects.Sprite {
     this.play(animToPlay);
 
     this.strumTarget = strumTarget;
-    this.splashOffsetX = (skinData.Offset ? skinData.Offset[0] : 0) * amplificationRatio;
-    this.splashOffsetY = (skinData.Offset ? skinData.Offset[1] : 0) * amplificationRatio;
+    this.splashOffsetX =
+      (skinData.Offset ? skinData.Offset[0] : 0) * amplificationRatio;
+    this.splashOffsetY =
+      (skinData.Offset ? skinData.Offset[1] : 0) * amplificationRatio;
   }
 
   preUpdate(time, delta) {
@@ -85,7 +90,7 @@ class NoteSplash extends Phaser.GameObjects.Sprite {
 
       this.setPosition(
         trueStrumX - visualWidth / 2 + this.splashOffsetX,
-        trueStrumY - visualHeight / 2 + this.splashOffsetY
+        trueStrumY - visualHeight / 2 + this.splashOffsetY,
       );
     }
   }

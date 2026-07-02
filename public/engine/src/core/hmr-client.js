@@ -81,7 +81,7 @@
       console.log(
         "%c HMR %c Error WS (esperable si el servidor HMR no está corriendo).",
         "background: #b71c1c; color: white;",
-        "color: unset;"
+        "color: unset;",
       );
       ws.close();
     };

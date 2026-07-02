@@ -35,7 +35,11 @@ class Chart {
     // Ordenamos las notas por tiempo (t) por seguridad para el procesamiento secuencial
     this.notes.sort((a, b) => a.t - b.t);
 
-    console.log(`%c CHART %c Cargada dificultad "${difficulty}" para "${songName}" (${this.notes.length} notas).`, 'background: #1a237e; color: white;', 'color: unset;');
+    console.log(
+      `%c CHART %c Cargada dificultad "${difficulty}" para "${songName}" (${this.notes.length} notas).`,
+      "background: #1a237e; color: white;",
+      "color: unset;",
+    );
   }
 
   /**

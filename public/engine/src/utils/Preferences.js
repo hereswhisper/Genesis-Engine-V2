@@ -3,115 +3,138 @@
  * @description Global class to manage and persist user preferences and settings across the game.
  */
 class Preferences {
-    static ghostTapping = false;
-    static downscroll = false;
-    static middleScroll = 'none'; // none, mini & split
-    static botplay = false;
-    static twoPlayers = false;
-    static noteSplashes = true;
-    static opponentGlow = true;
-    static hideOpStrums = false;
-    static hideOpNotes = false;
-    static playerEnemy = false;
-    static popUpAnim = 'default'; // default & stackeable
-    static popUpPos = [50, 42];
-    static showOpPopUp = true;
+  static ghostTapping = false;
+  static downscroll = false;
+  static middleScroll = "none"; // none, mini & split
+  static botplay = false;
+  static twoPlayers = false;
+  static noteSplashes = true;
+  static opponentGlow = true;
+  static hideOpStrums = false;
+  static hideOpNotes = false;
+  static playerEnemy = false;
+  static popUpAnim = "default"; // default & stackeable
+  static popUpPos = [50, 42];
+  static showOpPopUp = true;
 
-    // PREFERENCIA NUEVA: Romper combo al presionar sin nota (Ghost Miss)
-    static tapBreakCombo = false;
+  // PREFERENCIA NUEVA: Romper combo al presionar sin nota (Ghost Miss)
+  static tapBreakCombo = false;
 
-    // PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
-    static strumBackgroundOpacity = 0.0;
+  // PREFERENCIA DE OPACIDAD DEL FONDO DE STRUMLINES (0.0 a 1.0)
+  static strumBackgroundOpacity = 0.0;
 
-    // PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
-    static muteMissNote = false;
-    static muteMissNoteEnemy = false;
+  // PREFERENCIAS DE AUDIO PARA LOS FALLOS (MISS)
+  static muteMissNote = false;
+  static muteMissNoteEnemy = false;
 
-    /**
-     * @type {string[]}
-     * @description Define el orden y los elementos que se muestran en el texto del score.
-     */
-    static scoreFormat = ['score', 'rating', 'accuracy', 'misses', 'combo', 'maxCombo', 'cps'];
+  /**
+   * @type {string[]}
+   * @description Define el orden y los elementos que se muestran en el texto del score.
+   */
+  static scoreFormat = [
+    "score",
+    "rating",
+    "accuracy",
+    "misses",
+    "combo",
+    "maxCombo",
+    "cps",
+  ];
 
-    static init() {
-        const getBool = (key, defaultVal) => {
-            const val = localStorage.getItem(key);
-            return val !== null ? val === 'true' : defaultVal;
-        };
+  static init() {
+    const getBool = (key, defaultVal) => {
+      const val = localStorage.getItem(key);
+      return val !== null ? val === "true" : defaultVal;
+    };
 
-        const getString = (key, defaultVal) => {
-            const val = localStorage.getItem(key);
-            return val !== null ? val : defaultVal;
-        };
+    const getString = (key, defaultVal) => {
+      const val = localStorage.getItem(key);
+      return val !== null ? val : defaultVal;
+    };
 
-        const getArray = (key, defaultVal) => {
-            const val = localStorage.getItem(key);
-            try {
-                return val !== null ? JSON.parse(val) : defaultVal;
-            } catch (e) {
-                return defaultVal;
-            }
-        };
+    const getArray = (key, defaultVal) => {
+      const val = localStorage.getItem(key);
+      try {
+        return val !== null ? JSON.parse(val) : defaultVal;
+      } catch (e) {
+        return defaultVal;
+      }
+    };
 
-        const getFloat = (key, defaultVal) => {
-            const val = localStorage.getItem(key);
-            return val !== null ? parseFloat(val) : defaultVal;
-        };
+    const getFloat = (key, defaultVal) => {
+      const val = localStorage.getItem(key);
+      return val !== null ? parseFloat(val) : defaultVal;
+    };
 
-        this.ghostTapping = getBool('genesis_ghost_tapping', this.ghostTapping);
-        this.downscroll = getBool('genesis_downscroll', this.downscroll);
-        this.middleScroll = getString('genesis_middle_scroll', this.middleScroll);
-        this.botplay = getBool('genesis_botplay', this.botplay);
-        this.twoPlayers = getBool('genesis_2players', this.twoPlayers);
+    this.ghostTapping = getBool("genesis_ghost_tapping", this.ghostTapping);
+    this.downscroll = getBool("genesis_downscroll", this.downscroll);
+    this.middleScroll = getString("genesis_middle_scroll", this.middleScroll);
+    this.botplay = getBool("genesis_botplay", this.botplay);
+    this.twoPlayers = getBool("genesis_2players", this.twoPlayers);
 
-        this.noteSplashes = getBool('genesis_note_splashes', this.noteSplashes);
-        this.opponentGlow = getBool('genesis_opponent_glow', this.opponentGlow);
-        this.hideOpStrums = getBool('genesis_hide_op_strums', this.hideOpStrums);
-        this.hideOpNotes = getBool('genesis_hide_op_notes', this.hideOpNotes);
-        this.playerEnemy = getBool('genesis_player_enemy', this.playerEnemy);
+    this.noteSplashes = getBool("genesis_note_splashes", this.noteSplashes);
+    this.opponentGlow = getBool("genesis_opponent_glow", this.opponentGlow);
+    this.hideOpStrums = getBool("genesis_hide_op_strums", this.hideOpStrums);
+    this.hideOpNotes = getBool("genesis_hide_op_notes", this.hideOpNotes);
+    this.playerEnemy = getBool("genesis_player_enemy", this.playerEnemy);
 
-        this.popUpAnim = getString('genesis_popup_anim', this.popUpAnim);
-        this.popUpPos = getArray('genesis_popup_pos', this.popUpPos);
-        this.showOpPopUp = getBool('genesis_show_op_popup', this.showOpPopUp);
+    this.popUpAnim = getString("genesis_popup_anim", this.popUpAnim);
+    this.popUpPos = getArray("genesis_popup_pos", this.popUpPos);
+    this.showOpPopUp = getBool("genesis_show_op_popup", this.showOpPopUp);
 
-        // Cargar opacidad y nueva opción de romper combo
-        this.tapBreakCombo = getBool('genesis_tap_break_combo', this.tapBreakCombo);
-        this.strumBackgroundOpacity = getFloat('genesis_strum_bg_opacity', this.strumBackgroundOpacity);
+    // Cargar opacidad y nueva opción de romper combo
+    this.tapBreakCombo = getBool("genesis_tap_break_combo", this.tapBreakCombo);
+    this.strumBackgroundOpacity = getFloat(
+      "genesis_strum_bg_opacity",
+      this.strumBackgroundOpacity,
+    );
 
-        // Cargar las nuevas preferencias de sonido
-        this.muteMissNote = getBool('genesis_mute_miss_note', this.muteMissNote);
-        this.muteMissNoteEnemy = getBool('genesis_mute_miss_note_enemy', this.muteMissNoteEnemy);
+    // Cargar las nuevas preferencias de sonido
+    this.muteMissNote = getBool("genesis_mute_miss_note", this.muteMissNote);
+    this.muteMissNoteEnemy = getBool(
+      "genesis_mute_miss_note_enemy",
+      this.muteMissNoteEnemy,
+    );
 
-        this.scoreFormat = getArray('genesis_score_format', this.scoreFormat);
-    }
+    this.scoreFormat = getArray("genesis_score_format", this.scoreFormat);
+  }
 
-    static save() {
-        localStorage.setItem('genesis_ghost_tapping', this.ghostTapping);
-        localStorage.setItem('genesis_downscroll', this.downscroll);
-        localStorage.setItem('genesis_middle_scroll', this.middleScroll);
-        localStorage.setItem('genesis_botplay', this.botplay);
-        localStorage.setItem('genesis_2players', this.twoPlayers);
+  static save() {
+    localStorage.setItem("genesis_ghost_tapping", this.ghostTapping);
+    localStorage.setItem("genesis_downscroll", this.downscroll);
+    localStorage.setItem("genesis_middle_scroll", this.middleScroll);
+    localStorage.setItem("genesis_botplay", this.botplay);
+    localStorage.setItem("genesis_2players", this.twoPlayers);
 
-        localStorage.setItem('genesis_note_splashes', this.noteSplashes);
-        localStorage.setItem('genesis_opponent_glow', this.opponentGlow);
-        localStorage.setItem('genesis_hide_op_strums', this.hideOpStrums);
-        localStorage.setItem('genesis_hide_op_notes', this.hideOpNotes);
-        localStorage.setItem('genesis_player_enemy', this.playerEnemy);
+    localStorage.setItem("genesis_note_splashes", this.noteSplashes);
+    localStorage.setItem("genesis_opponent_glow", this.opponentGlow);
+    localStorage.setItem("genesis_hide_op_strums", this.hideOpStrums);
+    localStorage.setItem("genesis_hide_op_notes", this.hideOpNotes);
+    localStorage.setItem("genesis_player_enemy", this.playerEnemy);
 
-        localStorage.setItem('genesis_popup_anim', this.popUpAnim);
-        localStorage.setItem('genesis_popup_pos', JSON.stringify(this.popUpPos));
-        localStorage.setItem('genesis_show_op_popup', this.showOpPopUp);
+    localStorage.setItem("genesis_popup_anim", this.popUpAnim);
+    localStorage.setItem("genesis_popup_pos", JSON.stringify(this.popUpPos));
+    localStorage.setItem("genesis_show_op_popup", this.showOpPopUp);
 
-        // Guardar opacidad y nueva opción de romper combo
-        localStorage.setItem('genesis_tap_break_combo', this.tapBreakCombo);
-        localStorage.setItem('genesis_strum_bg_opacity', this.strumBackgroundOpacity);
+    // Guardar opacidad y nueva opción de romper combo
+    localStorage.setItem("genesis_tap_break_combo", this.tapBreakCombo);
+    localStorage.setItem(
+      "genesis_strum_bg_opacity",
+      this.strumBackgroundOpacity,
+    );
 
-        // Guardar las nuevas preferencias de sonido
-        localStorage.setItem('genesis_mute_miss_note', this.muteMissNote);
-        localStorage.setItem('genesis_mute_miss_note_enemy', this.muteMissNoteEnemy);
+    // Guardar las nuevas preferencias de sonido
+    localStorage.setItem("genesis_mute_miss_note", this.muteMissNote);
+    localStorage.setItem(
+      "genesis_mute_miss_note_enemy",
+      this.muteMissNoteEnemy,
+    );
 
-        localStorage.setItem('genesis_score_format', JSON.stringify(this.scoreFormat));
-    }
+    localStorage.setItem(
+      "genesis_score_format",
+      JSON.stringify(this.scoreFormat),
+    );
+  }
 }
 
 window.Preferences = Preferences;

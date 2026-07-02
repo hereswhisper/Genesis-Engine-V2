@@ -16,10 +16,13 @@ class IntroTextScene extends Phaser.Scene {
   }
 
   preload() {
-    const vcrFont = new FontFace('vcr', `url(${Path.fonts}vcr.ttf)`);
-    vcrFont.load().then((loadedFont) => {
+    const vcrFont = new FontFace("vcr", `url(${Path.fonts}vcr.ttf)`);
+    vcrFont
+      .load()
+      .then((loadedFont) => {
         document.fonts.add(loadedFont);
-    }).catch((err) => console.warn("Error al cargar la fuente VCR:", err));
+      })
+      .catch((err) => console.warn("Error al cargar la fuente VCR:", err));
 
     Alphabet.load(this);
     this.load.json("introData", Path.dataUI + "intro.json");
@@ -39,7 +42,11 @@ class IntroTextScene extends Phaser.Scene {
     });
 
     const loadAtlas = (k, f) =>
-      this.load.atlasXML(k, `${Path.menu}intro/${f}.png`, `${Path.menu}intro/${f}.xml`);
+      this.load.atlasXML(
+        k,
+        `${Path.menu}intro/${f}.png`,
+        `${Path.menu}intro/${f}.xml`,
+      );
 
     loadAtlas("logoBumpin", "logoBumpin");
     loadAtlas("gfDanceTitle", "gfDanceTitle");
@@ -47,7 +54,7 @@ class IntroTextScene extends Phaser.Scene {
 
     this.load.audio("confirmMenu", `${Path.sounds}menu/confirmMenu.ogg`);
     ["girlfriendsRingtone", "freakyMenu"].forEach((m) =>
-      this.load.audio(m, `${Path.music}${m}.ogg`)
+      this.load.audio(m, `${Path.music}${m}.ogg`),
     );
   }
 
@@ -86,15 +93,16 @@ class IntroTextScene extends Phaser.Scene {
 
     // SOPORTE TÁCTIL (Tap para avanzar)
     if (window.isMobile || window.isReactNative) {
-        this.input.on('pointerdown', () => {
-            this.skipIntro();
-        });
+      this.input.on("pointerdown", () => {
+        this.skipIntro();
+      });
     }
   }
 
   update() {
     if (this.sceneEnded) return;
-    if (this.music && this.music.isPlaying) Conductor.update(this.music.seek * 1000);
+    if (this.music && this.music.isPlaying)
+      Conductor.update(this.music.seek * 1000);
 
     const currentSongTime = this.music ? this.music.seek * 1000 : 0;
 
@@ -106,12 +114,22 @@ class IntroTextScene extends Phaser.Scene {
       } else break;
     }
 
-    if (this.currentEventIndex >= this.introEvents.length && !this._waitingToSkip && !this.sceneEnded) {
+    if (
+      this.currentEventIndex >= this.introEvents.length &&
+      !this._waitingToSkip &&
+      !this.sceneEnded
+    ) {
       this._waitingToSkip = true;
-      this.time.delayedCall(Conductor.beatLengthMs, () => { this.skipIntro(); });
+      this.time.delayedCall(Conductor.beatLengthMs, () => {
+        this.skipIntro();
+      });
     }
 
-    if (Conductor.currentBeat >= 16 && !this._waitingToSkip && !this.sceneEnded) {
+    if (
+      Conductor.currentBeat >= 16 &&
+      !this._waitingToSkip &&
+      !this.sceneEnded
+    ) {
       this.skipIntro();
     }
   }
@@ -126,8 +144,14 @@ class IntroTextScene extends Phaser.Scene {
     if (step.text) step.text.forEach((line) => this.displayTextLine(line));
     if (step.img) {
       if (this.imageObj) this.imageObj.destroy();
-      this.imageObj = this.add.image(this.cameras.main.width / 2, this.startY + this.currentYOffset + 80, step.img.id)
-        .setOrigin(0.5).setScale(step.img.scale || 1);
+      this.imageObj = this.add
+        .image(
+          this.cameras.main.width / 2,
+          this.startY + this.currentYOffset + 80,
+          step.img.id,
+        )
+        .setOrigin(0.5)
+        .setScale(step.img.scale || 1);
       this.currentYOffset += 100;
     }
     if (step.action) {
@@ -135,7 +159,9 @@ class IntroTextScene extends Phaser.Scene {
         this.currentRandomPair = this.getRandomTextPair();
         this.displayTextLine(this.currentRandomPair[0]);
       } else if (step.action === "random-text-2") {
-        this.displayTextLine(this.currentRandomPair ? this.currentRandomPair[1] : "");
+        this.displayTextLine(
+          this.currentRandomPair ? this.currentRandomPair[1] : "",
+        );
       } else if (step.action === "skipIntro") {
         this.skipIntro();
       }
@@ -151,7 +177,14 @@ class IntroTextScene extends Phaser.Scene {
 
   displayTextLine(textString) {
     if (!textString) return;
-    const text = new window.Alphabet(this, 0, 0, textString.toUpperCase(), true, 1);
+    const text = new window.Alphabet(
+      this,
+      0,
+      0,
+      textString.toUpperCase(),
+      true,
+      1,
+    );
     text.x = this.cameras.main.width / 2 - text.width / 2;
     text.y = this.startY + this.currentYOffset;
     this.texts.push(text);
@@ -159,7 +192,11 @@ class IntroTextScene extends Phaser.Scene {
   }
 
   getRandomTextPair() {
-    return this.randomTextPairs.length > 0 ? this.randomTextPairs[Math.floor(Math.random() * this.randomTextPairs.length)] : ["PART 1", "PART 2"];
+    return this.randomTextPairs.length > 0
+      ? this.randomTextPairs[
+          Math.floor(Math.random() * this.randomTextPairs.length)
+        ]
+      : ["PART 1", "PART 2"];
   }
 
   shutdown() {

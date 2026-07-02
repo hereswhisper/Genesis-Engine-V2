@@ -1,7 +1,9 @@
 // src/funkin/play/stage/props.js
 
 // Definimos el Pipeline FUERA de la clase StageProps para evitar errores de Scope con el HMR
-class CustomChromaPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline {
+class CustomChromaPipeline
+  extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline
+{
   constructor(game) {
     super({
       game: game,
@@ -103,12 +105,20 @@ class StageProps {
 
       if (typeof item.chromaKey === "object") {
         hexColor = item.chromaKey.color || "#000000";
-        tolerance = item.chromaKey.tolerance !== undefined ? item.chromaKey.tolerance : 0.1;
-        sensitivity = item.chromaKey.sensitivity !== undefined ? item.chromaKey.sensitivity : 0.1;
+        tolerance =
+          item.chromaKey.tolerance !== undefined
+            ? item.chromaKey.tolerance
+            : 0.1;
+        sensitivity =
+          item.chromaKey.sensitivity !== undefined
+            ? item.chromaKey.sensitivity
+            : 0.1;
       } else {
         hexColor = item.chromaKey;
-        tolerance = item.chromaTolerance !== undefined ? item.chromaTolerance : 0.1;
-        sensitivity = item.chromaSensitivity !== undefined ? item.chromaSensitivity : 0.1;
+        tolerance =
+          item.chromaTolerance !== undefined ? item.chromaTolerance : 0.1;
+        sensitivity =
+          item.chromaSensitivity !== undefined ? item.chromaSensitivity : 0.1;
       }
 
       this.applyChromaKey(obj, hexColor, tolerance, sensitivity);
@@ -120,7 +130,10 @@ class StageProps {
 
     // Registramos el pipeline dinámicamente si no existe aún usando la clase extraída
     if (!obj.scene.renderer.pipelines.has(pipelineName)) {
-      obj.scene.renderer.pipelines.addPostPipeline(pipelineName, CustomChromaPipeline);
+      obj.scene.renderer.pipelines.addPostPipeline(
+        pipelineName,
+        CustomChromaPipeline,
+      );
     }
 
     let color = Phaser.Display.Color.HexStringToColor(hexColor);

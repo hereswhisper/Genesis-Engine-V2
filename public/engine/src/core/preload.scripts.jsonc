@@ -47,6 +47,7 @@
   "src/funkin/play/referee/update.js",
   "src/funkin/play/referee/shutdown.js",
   "src/funkin/play/referee/preload.js",
+  "src/funkin/play/referee/pause.js",
 
   "src/funkin/play/UI/countDown/renderer.js",
   "src/funkin/play/UI/countDown/logic.js",
@@ -106,6 +107,11 @@
 
   // multiplayer
   "src/funkin/menu/multiplayer/MultiplayerScene.js",
+
+  //Pause Sub-Scene
+  "src/funkin/play/UI/pause/PauseScene.js",
+  "src/funkin/play/UI/pause/PauseMenuLogic.js",
+  "src/funkin/play/UI/pause/PauseMenuRenderer.js",
 
   // Options
   "src/funkin/menu/options/utils/AlphabetRenderer.js",

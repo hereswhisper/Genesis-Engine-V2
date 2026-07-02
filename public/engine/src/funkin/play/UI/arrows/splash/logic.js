@@ -55,16 +55,26 @@ class NoteSplashLogic {
   }
 
   onNoteHit(data) {
-    if (!data || !data.note || !data.note.noteData || !window.Preferences.noteSplashes) return;
+    if (
+      !data ||
+      !data.note ||
+      !data.note.noteData ||
+      !window.Preferences.noteSplashes
+    )
+      return;
 
     // 1. Si la nota está marcada internamente como tocada por un Botplay, la ignoramos.
     if (data.note.isBotPlay) return;
 
     const isMultiplayer = window.isMultiplayer || false;
-    const isTwoPlayers = window.Preferences ? window.Preferences.twoPlayers : false;
+    const isTwoPlayers = window.Preferences
+      ? window.Preferences.twoPlayers
+      : false;
     const playerEnemy = isMultiplayer
-        ? (window.MultiplayerData && !window.MultiplayerData.isHost)
-        : (window.Preferences ? window.Preferences.playerEnemy : false);
+      ? window.MultiplayerData && !window.MultiplayerData.isHost
+      : window.Preferences
+        ? window.Preferences.playerEnemy
+        : false;
 
     const isOpponentSide = data.note.noteData.p === "op";
     const isLocalNote = playerEnemy ? isOpponentSide : !isOpponentSide;
@@ -72,7 +82,7 @@ class NoteSplashLogic {
     // 2. Si la nota NO le pertenece a tu jugador local y NO estás en Multiplayer ni 2Players,
     // significa que el oponente es la IA del juego (Bot enemigo). No mostramos Splash.
     if (!isLocalNote && !isMultiplayer && !isTwoPlayers) {
-        return; 
+      return;
     }
 
     const isPlayer = data.note.noteData.p === "pl";
@@ -80,13 +90,15 @@ class NoteSplashLogic {
 
     // Si viene con un rating ya evaluado (común en multiplayer o al procesar la nota local)
     if (data.rating) {
-        const r = data.rating.toLowerCase();
-        isSickOrBetter = (r === 'perfect' || r === 'killer' || r === 'sick');
+      const r = data.rating.toLowerCase();
+      isSickOrBetter = r === "perfect" || r === "killer" || r === "sick";
     } else {
-        // Fallback: calcular la diferencia de tiempo si no hay un rating explícito
-        const absDiff = Math.abs(data.note.noteData.t - window.Conductor.songPosition);
-        // Validar usando el umbral SICK (<= 45ms típicamente), lo que incluye Killer y Perfect.
-        isSickOrBetter = (absDiff <= window.Judgment.PBOT1_SICK_THRESHOLD);
+      // Fallback: calcular la diferencia de tiempo si no hay un rating explícito
+      const absDiff = Math.abs(
+        data.note.noteData.t - window.Conductor.songPosition,
+      );
+      // Validar usando el umbral SICK (<= 45ms típicamente), lo que incluye Killer y Perfect.
+      isSickOrBetter = absDiff <= window.Judgment.PBOT1_SICK_THRESHOLD;
     }
 
     // Si cumple con la precisión requerida, disparamos la animación

@@ -36,12 +36,45 @@ class Alphabet extends Phaser.GameObjects.Container {
     let xPos = 0;
 
     const specialChars = {
-      "#": "hashtag", "$": "dollarsign", "%": "%", "&": "amp", "(": "start parentheses",
-      ")": "end parentheses", "*": "*", "+": "+", "-": "-", "0": "0", "1": "1", "2": "2",
-      "3": "3", "4": "4", "5": "5", "6": "6", "7": "7", "8": "8", "9": "9", ":": ":",
-      ";": ";", "<": "<", "=": "=", ">": ">", "@": "@", "[": "[", "\\": "\\", "]": "]",
-      "^": "^", "_": "_", "'": "apostraphie", "!": "exclamation point", "?": "question mark",
-      ".": "period", ",": "comma", "|": "|", "~": "~", "/": "forward slash", " ": null
+      "#": "hashtag",
+      $: "dollarsign",
+      "%": "%",
+      "&": "amp",
+      "(": "start parentheses",
+      ")": "end parentheses",
+      "*": "*",
+      "+": "+",
+      "-": "-",
+      0: "0",
+      1: "1",
+      2: "2",
+      3: "3",
+      4: "4",
+      5: "5",
+      6: "6",
+      7: "7",
+      8: "8",
+      9: "9",
+      ":": ":",
+      ";": ";",
+      "<": "<",
+      "=": "=",
+      ">": ">",
+      "@": "@",
+      "[": "[",
+      "\\": "\\",
+      "]": "]",
+      "^": "^",
+      _: "_",
+      "'": "apostraphie",
+      "!": "exclamation point",
+      "?": "question mark",
+      ".": "period",
+      ",": "comma",
+      "|": "|",
+      "~": "~",
+      "/": "forward slash",
+      " ": null,
     };
 
     const bottomAlignedChars = [".", ",", "_"];
@@ -51,7 +84,8 @@ class Alphabet extends Phaser.GameObjects.Container {
       let prefix = "";
 
       if (specialChars[char] !== undefined) prefix = specialChars[char];
-      else if (/^[A-Z]$/.test(char)) prefix = char + (this.bold ? " bold" : " capital");
+      else if (/^[A-Z]$/.test(char))
+        prefix = char + (this.bold ? " bold" : " capital");
       else if (/^[a-z]$/.test(char)) prefix = char + " lowercase";
       else prefix = char;
 
@@ -64,7 +98,12 @@ class Alphabet extends Phaser.GameObjects.Container {
 
       if (animData) {
         // Se asigna el frame inicial para obtener dimensiones reales al instante
-        const letter = this.scene.add.sprite(xPos, 0, "bold", animData.firstFrame);
+        const letter = this.scene.add.sprite(
+          xPos,
+          0,
+          "bold",
+          animData.firstFrame,
+        );
         letter.play(animData.animKey);
 
         if (bottomAlignedChars.includes(char)) {
@@ -88,15 +127,18 @@ class Alphabet extends Phaser.GameObjects.Container {
   getOrCreateAnimation(prefix) {
     const animKey = prefix;
     const texture = this.scene.textures.get("bold");
-    const animationFrames = texture.getFrameNames().filter(f => f.startsWith(prefix));
+    const animationFrames = texture
+      .getFrameNames()
+      .filter((f) => f.startsWith(prefix));
 
     if (animationFrames.length > 0) {
       animationFrames.sort();
       if (!this.scene.anims.exists(animKey)) {
         this.scene.anims.create({
           key: animKey,
-          frames: animationFrames.map(f => ({ key: "bold", frame: f })),
-          frameRate: 24, repeat: -1
+          frames: animationFrames.map((f) => ({ key: "bold", frame: f })),
+          frameRate: 24,
+          repeat: -1,
         });
       }
       return { animKey: animKey, firstFrame: animationFrames[0] };

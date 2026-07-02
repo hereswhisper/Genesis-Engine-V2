@@ -38,30 +38,35 @@ class IconsRenderer {
 
   drawStaticFrame(iconName, isSelected = false) {
     const p = this.parent;
-    const canvasIcon = p.domMenu.node.querySelector(`[id="canvas-icon-${iconName}"]`);
-    const canvasCircle = p.domMenu.node.querySelector(`[id="canvas-circle-${iconName}"]`);
+    const canvasIcon = p.domMenu.node.querySelector(
+      `[id="canvas-icon-${iconName}"]`,
+    );
+    const canvasCircle = p.domMenu.node.querySelector(
+      `[id="canvas-circle-${iconName}"]`,
+    );
     if (!canvasIcon || !canvasCircle) return;
 
     // Tenemos dos contextos diferentes para no interferir con las animaciones
     const ctxI = canvasIcon.getContext("2d");
     const ctxC = canvasCircle.getContext("2d");
-    
+
     ctxI.clearRect(0, 0, canvasIcon.width, canvasIcon.height);
     ctxC.clearRect(0, 0, canvasCircle.width, canvasCircle.height);
 
     const texture = this.scene.textures.get("optionsIcons");
     if (!texture || texture.key === "__MISSING") return;
 
-    let frameName = isSelected && this.manager.iconStates[iconName]
+    let frameName =
+      isSelected && this.manager.iconStates[iconName]
         ? this.manager.iconStates[iconName]
         : this.getLastFrameName(texture, iconName) || iconName + "0000";
 
     let iconFrame = texture.has(frameName) ? texture.get(frameName) : null;
     const scale = 0.9;
-    
+
     let tW = iconFrame ? iconFrame.cutWidth * scale : 80;
     let tH = iconFrame ? iconFrame.cutHeight * scale : 80;
-    
+
     let circleScaleFactor = 0.8;
     let circleSize = Math.max(tW, tH) * circleScaleFactor;
 
@@ -78,7 +83,7 @@ class IconsRenderer {
           (canvasCircle.width - circleSize) / 2,
           (canvasCircle.height - circleSize) / 2,
           circleSize,
-          circleSize
+          circleSize,
         );
       }
     }

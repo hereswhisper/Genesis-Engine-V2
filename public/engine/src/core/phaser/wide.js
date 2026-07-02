@@ -40,16 +40,16 @@ class Wide {
     // 2. ACTUALIZACIÓN DE RESOLUCIÓN INTERNA
     if (this.currentWidth !== newWidth) {
       this.currentWidth = newWidth;
-      
+
       // Ajustamos el "Game Size" lógico internamente.
       window.game.scale.setGameSize(newWidth, this.baseHeight);
-      window.game.events.emit('canvasResized', newWidth, this.baseHeight);
+      window.game.events.emit("canvasResized", newWidth, this.baseHeight);
     }
 
     // 3. REFRESCAR Y CENTRAR NATIVAMENTE
     // Le decimos a Phaser que recalcule sus parámetros visuales...
     window.game.scale.refresh();
-    
+
     // LA SOLUCIÓN AL PROBLEMA: Forzamos matemáticamente a Phaser a que aplique
     // su centrado interno de inmediato para evitar que se quede pegado a la izquierda.
     window.game.scale.updateCenter();
@@ -59,17 +59,17 @@ class Wide {
   }
 
   getCurrentWidth() {
-      return this.currentWidth;
+    return this.currentWidth;
   }
 
   calculatePanoramicWidth() {
     if (window.innerHeight === 0) return this.baseWidth;
 
     const windowRatio = window.innerWidth / window.innerHeight;
-    
+
     // Bloqueamos el escalado puramente a la horizontal (720p base a Ultrawide)
-    const minRatio = 16 / 9;  // 1.77 (1280x720) - Límite mínimo
-    const maxRatio = 21 / 9;  // 2.33 (1680x720 aprox) - Límite máximo (Ultrawide)
+    const minRatio = 16 / 9; // 1.77 (1280x720) - Límite mínimo
+    const maxRatio = 21 / 9; // 2.33 (1680x720 aprox) - Límite máximo (Ultrawide)
 
     // Clampeamos el ratio para que nunca baje de 16:9 ni suba de 21:9
     const clampedRatio = Math.max(minRatio, Math.min(windowRatio, maxRatio));

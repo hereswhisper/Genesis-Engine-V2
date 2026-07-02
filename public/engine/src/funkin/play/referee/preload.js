@@ -6,27 +6,33 @@ class PlayRefereePreload {
     window.Stage.preload(scene);
     window.Song.preload(scene);
 
-    if (window.RatingLogic && typeof window.RatingLogic.preload === 'function') {
-        window.RatingLogic.preload(scene);
+    if (
+      window.RatingLogic &&
+      typeof window.RatingLogic.preload === "function"
+    ) {
+      window.RatingLogic.preload(scene);
     } else {
-        console.warn("[PlayRefereePreload] RatingLogic no está definido.");
+      console.warn("[PlayRefereePreload] RatingLogic no está definido.");
     }
 
-    if (window.ComboLogic && typeof window.ComboLogic.preload === 'function') {
-        window.ComboLogic.preload(scene);
+    if (window.ComboLogic && typeof window.ComboLogic.preload === "function") {
+      window.ComboLogic.preload(scene);
     } else {
-        console.warn("[PlayRefereePreload] ComboLogic no está definido.");
+      console.warn("[PlayRefereePreload] ComboLogic no está definido.");
     }
 
-    if (window.HealthLogic && typeof window.HealthLogic.preload === 'function') {
-        window.HealthLogic.preload(scene);
+    if (
+      window.HealthLogic &&
+      typeof window.HealthLogic.preload === "function"
+    ) {
+      window.HealthLogic.preload(scene);
     } else {
-        console.warn("[PlayRefereePreload] HealthLogic no está definido.");
+      console.warn("[PlayRefereePreload] HealthLogic no está definido.");
     }
 
     // NUEVO: Precarga del Score
-    if (window.ScoreLogic && typeof window.ScoreLogic.preload === 'function') {
-        window.ScoreLogic.preload(scene);
+    if (window.ScoreLogic && typeof window.ScoreLogic.preload === "function") {
+      window.ScoreLogic.preload(scene);
     }
 
     const songName = scene.playData.get("song", "test");
@@ -65,9 +71,9 @@ class PlayRefereePreload {
 
       const holdDirs = data.gameplay?.holdCovers?.directions;
       if (holdDirs) {
-          Object.values(holdDirs).forEach(dir => {
-              loadXML(dir.path);
-          });
+        Object.values(holdDirs).forEach((dir) => {
+          loadXML(dir.path);
+        });
       }
     };
 

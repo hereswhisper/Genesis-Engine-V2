@@ -1,12 +1,17 @@
 class UIDomCreator {
-    constructor(parent) { this.parent = parent; this.scene = parent.scene; }
+  constructor(parent) {
+    this.parent = parent;
+    this.scene = parent.scene;
+  }
 
-    createDOM(defaultTitle) {
-        const p = this.parent;
-        const tabsHTML = p.tabs.renderer.getTabsHTML();
-        const imgPath = (window.Path && window.Path.menuOptions ? window.Path.menuOptions : "") + "under-construction.png";
+  createDOM(defaultTitle) {
+    const p = this.parent;
+    const tabsHTML = p.tabs.renderer.getTabsHTML();
+    const imgPath =
+      (window.Path && window.Path.menuOptions ? window.Path.menuOptions : "") +
+      "under-construction.png";
 
-        const miHTML = `
+    const miHTML = `
             <style>
                 #opt-wrap, #opt-wrap * { -webkit-tap-highlight-color: transparent !important; user-select: none; }
                 #tab-cont::-webkit-scrollbar { display: none; }
@@ -64,32 +69,47 @@ class UIDomCreator {
                     </div>
                 </div>
             </div>`;
-        p.domMenu.createFromHTML(miHTML); p.domMenu.setScrollFactor(0);
-        
-        setTimeout(() => {
-            const str = (window.ClientGlobals?.language === 'es') ? 'DESCRIPCION' : 'DESCRIPTION';
-            window.AlphabetRenderer.render(this.scene, p.domMenu.node.querySelector('#canvas-desc-title'), str, 0.55);
-            
-            p.sections.forEach(sec => {
-                // Obtener texto dando preferencia al inglés del objeto "label"
-                let tabText = "";
-                if (sec.label) {
-                    tabText = sec.label.en || sec.label.es || sec.id || sec.option || "UNKNOWN";
-                } else {
-                    tabText = sec.id || sec.option || "UNKNOWN";
-                }
-                
-                // Buscar el elemento canvas usando el id nuevo o la propiedad vieja como fallback alternativo
-                const targetId = sec.id || sec.option || "unknown";
-                const canvasElement = p.domMenu.node.querySelector(`[id="canvas-tab-${targetId}"]`) || p.domMenu.node.querySelector(`[id="canvas-tab-${sec.option}"]`);
-                
-                if (canvasElement) {
-                    window.AlphabetRenderer.render(this.scene, canvasElement, tabText.toUpperCase(), 0.55);
-                }
-            });
-        }, 50);
-        
-        p.builder.renderer.loadSectionData(defaultTitle);
-    }
+    p.domMenu.createFromHTML(miHTML);
+    p.domMenu.setScrollFactor(0);
+
+    setTimeout(() => {
+      const str =
+        window.ClientGlobals?.language === "es" ? "DESCRIPCION" : "DESCRIPTION";
+      window.AlphabetRenderer.render(
+        this.scene,
+        p.domMenu.node.querySelector("#canvas-desc-title"),
+        str,
+        0.55,
+      );
+
+      p.sections.forEach((sec) => {
+        // Obtener texto dando preferencia al inglés del objeto "label"
+        let tabText = "";
+        if (sec.label) {
+          tabText =
+            sec.label.en || sec.label.es || sec.id || sec.option || "UNKNOWN";
+        } else {
+          tabText = sec.id || sec.option || "UNKNOWN";
+        }
+
+        // Buscar el elemento canvas usando el id nuevo o la propiedad vieja como fallback alternativo
+        const targetId = sec.id || sec.option || "unknown";
+        const canvasElement =
+          p.domMenu.node.querySelector(`[id="canvas-tab-${targetId}"]`) ||
+          p.domMenu.node.querySelector(`[id="canvas-tab-${sec.option}"]`);
+
+        if (canvasElement) {
+          window.AlphabetRenderer.render(
+            this.scene,
+            canvasElement,
+            tabText.toUpperCase(),
+            0.55,
+          );
+        }
+      });
+    }, 50);
+
+    p.builder.renderer.loadSectionData(defaultTitle);
+  }
 }
 window.UIDomCreator = UIDomCreator;
