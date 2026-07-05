@@ -11,7 +11,6 @@ class Controls {
       },
       { capture: true },
     );
-
     const defaultPC = {
       // UI navigation
       UI_UP: [38, 87],
@@ -32,7 +31,6 @@ class Controls {
       ACCEPT: [13, 32, 90], // ENTER, SPACE, Z
       BACK: [27, 8, 88],
       PAUSE: [13, 27, 80],
-      // --- AGREGADO 114 (F3) AL DEBUGG ---
       DEBUGG: [55, 103, 114],
       // Global volume
       VOL_UP: [187, 107],
@@ -40,7 +38,6 @@ class Controls {
       VOL_MUTE: [48, 96],
       DEV_TOOLS: [114],
     };
-
     const defaultGamepad = {
       UI_UP: [12],
       UI_DOWN: [13],
@@ -63,16 +60,14 @@ class Controls {
       VOL_MUTE: [],
       DEV_TOOLS: [],
     };
-
     this.PCKeyBinds = {};
     const savedGP = JSON.parse(localStorage.getItem("genesis_controls_gp"));
     this.GamepadBinds = savedGP || defaultGamepad;
-
     Object.keys(defaultPC).forEach((action) => {
-      // Sincronización en tiempo real leyendo los ID individuales
+      // Restauramos a "ctrl_accion" para sincronía perfecta con OptionsStorage
       const storageId = `ctrl_${action.toLowerCase()}`;
       const savedStr = localStorage.getItem(storageId);
-      
+
       if (savedStr !== null) {
         try {
           this.PCKeyBinds[action] = JSON.parse(savedStr);
@@ -82,7 +77,6 @@ class Controls {
       } else {
         this.PCKeyBinds[action] = defaultPC[action];
       }
-
       Controls[action] = (e) => {
         if (!e) return false;
         if (e.keyCode !== undefined) {

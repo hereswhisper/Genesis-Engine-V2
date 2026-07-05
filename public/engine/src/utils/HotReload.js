@@ -1,11 +1,6 @@
-// public/engine/src/utils/HotReload.js
-
 class HotReload {
   constructor() {
-    // Escenas superpuestas, de sistema o globales que NO deben ser reiniciadas
     this.ignoredScenes = ["HUDScene", "ToastScene", "TransitionScene"];
-
-    // Iniciar el listener de eventos
     this.init();
   }
 
@@ -30,13 +25,14 @@ class HotReload {
       "color: unset;",
     );
 
-    // 1. Re-escanear las carpetas de los mods
-    if (
-      window.FileSystem &&
-      window.FileSystem.provider &&
-      typeof window.FileSystem.provider.scanMods === "function"
-    ) {
+    // 1. Re-escanear las carpetas de los mods Y reconstruir el índice de archivos
+    if (window.FileSystem && window.FileSystem.provider && typeof window.FileSystem.provider.scanMods === "function") {
       await window.FileSystem.provider.scanMods();
+      
+      // NUEVO: Volver a armar la lista de archivos para evitar fallos de cache al recargar
+      if (typeof window.FileSystem.buildIndex === "function") {
+        await window.FileSystem.buildIndex();
+      }
     }
 
     // 2. Volver a cargar la lista de semanas fusionada
@@ -60,7 +56,6 @@ class HotReload {
           const sound = sceneObj.sys.sound;
           const anims = sceneObj.sys.anims;
 
-          // A. Limpiar las cachés de datos
           if (cache) {
             ["json", "xml", "text", "audio"].forEach((type) => {
               if (cache[type] && cache[type].entries) {
@@ -70,27 +65,19 @@ class HotReload {
             });
           }
 
-          // B. Limpiar texturas (con protección de UI global)
           const keysToRemove = [];
           if (textures) {
             const protectedKeys = new Set(["__DEFAULT", "__MISSING"]);
-
             this.ignoredScenes.forEach((ignoredKey) => {
               const persistentScene = window.game.scene.getScene(ignoredKey);
-              if (
-                persistentScene &&
-                persistentScene.sys &&
-                persistentScene.sys.isActive()
-              ) {
+              if (persistentScene && persistentScene.sys && persistentScene.sys.isActive()) {
                 const protectTextures = (gameObject) => {
                   if (gameObject.texture && gameObject.texture.key)
                     protectedKeys.add(gameObject.texture.key);
                   if (gameObject.list) gameObject.list.forEach(protectTextures);
                 };
                 if (persistentScene.children) {
-                  persistentScene.children
-                    .getChildren()
-                    .forEach(protectTextures);
+                  persistentScene.children.getChildren().forEach(protectTextures);
                 }
               }
             });
@@ -100,67 +87,46 @@ class HotReload {
                 keysToRemove.push(tex.key);
               }
             });
-
             keysToRemove.forEach((k) => textures.remove(k));
           }
 
-          // C. Limpiar Animaciones Huérfanas (ARREGLO GENERAL Y SEGURO)
           if (anims && anims.anims) {
             const animsToRemove = [];
-
-            // Obtenemos el almacenamiento interno de animaciones de Phaser
             const allAnims = anims.anims.entries || {};
 
-            // Función procesadora para evaluar qué animaciones borrar
             const processAnim = (anim) => {
               if (anim && anim.frames && anim.frames.length > 0) {
                 const texKey = anim.frames[0].textureKey;
-                // Si la animación depende de una textura que estamos destruyendo, la marcamos
                 if (keysToRemove.includes(texKey)) {
                   animsToRemove.push(anim.key);
                 }
               } else if (anim) {
-                // Las animaciones corruptas o vacías también se van por seguridad
                 animsToRemove.push(anim.key);
               }
             };
 
-            // Compatibilidad Universal: Verifica si es un Map nativo (ES6) o un Objeto Literal (Phaser Structs)
             if (allAnims instanceof Map) {
               allAnims.forEach(processAnim);
             } else {
               Object.values(allAnims).forEach(processAnim);
             }
-
-            // Finalmente, le pedimos al AnimationManager que las elimine de forma oficial
             animsToRemove.forEach((k) => anims.remove(k));
           }
 
-          // D. Detener y vaciar audios
           if (sound) {
             sound.removeAll();
           }
 
-          console.log(
-            `[HotReload] ✔️ Caché y animaciones vaciadas exitosamente para: ${key}`,
-          );
+          console.log(`[HotReload] Caché vaciada exitosamente para: ${key}`);
         });
 
-        // Reiniciamos la escena
         sceneObj.scene.restart();
-
         if (window.Toast) {
-          window.Toast.alert(
-            `Recargando recursos y escena: ${key}`,
-            "suggestion",
-          );
+          window.Toast.alert(`Recargando recursos y escena: ${key}`, "suggestion");
         }
-      } else {
-        console.log(`[HotReload] Ignorando escena global/UI protegida: ${key}`);
       }
     });
   }
 }
 
-// Inicializar y exponer de manera global
 window.hotReload = new HotReload();

@@ -1,5 +1,4 @@
 // src/funkin/play/stage/props.js
-
 // Definimos el Pipeline FUERA de la clase StageProps para evitar errores de Scope con el HMR
 class CustomChromaPipeline
   extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline
@@ -15,38 +14,30 @@ class CustomChromaPipeline
                   uniform float uTolerance;
                   uniform float uSensitivity;
                   varying vec2 outTexCoord;
-
                   void main() {
                       vec4 texColor = texture2D(uMainSampler, outTexCoord);
-
                       // Ignorar si ya es transparente
                       if (texColor.a < 0.0001) {
                           gl_FragColor = vec4(0.0);
                           return;
                       }
-
                       // Extraer RGB puro
                       vec3 rgb = texColor.rgb / texColor.a;
                       float distance = length(rgb - uColor);
-
                       // Blend para borrado de color
                       float alphaBlend = smoothstep(uTolerance, uTolerance + uSensitivity, distance);
-
                       // ALGORITMO ANTI-HALO (Spill Suppression)
                       vec3 cleanColor = mix(rgb, rgb + (rgb - uColor) * 0.8, 1.0 - alphaBlend);
                       cleanColor = clamp(cleanColor, 0.0, 1.0);
-
                       float finalAlpha = texColor.a * alphaBlend;
                       gl_FragColor = vec4(cleanColor * finalAlpha, finalAlpha);
                   }
                   `,
     });
-
     this.uColor = [0.0, 0.0, 0.0];
     this.uTolerance = 0.1;
     this.uSensitivity = 0.1;
   }
-
   onPreRender() {
     if (this.uColor) {
       this.set3f("uColor", this.uColor[0], this.uColor[1], this.uColor[2]);
@@ -55,34 +46,36 @@ class CustomChromaPipeline
     this.set1f("uSensitivity", this.uSensitivity);
   }
 }
-
 class StageProps {
   static apply(obj, item) {
     if (!obj) return;
-
     // Coordenadas
     if (item.position) obj.setPosition(item.position[0], item.position[1]);
-
     // Si el JSON especifica origen, sobreescribe el 0,0 default
     if (item.origin) obj.setOrigin(item.origin[0], item.origin[1]);
-
+    
     // Transformaciones visuales
-    if (item.scale !== undefined) obj.setScale(item.scale);
+    if (item.scale !== undefined) {
+      // FIX: Evitar que arreglos [x, y] generen dimensiones NaN y desaparezcan el sprite
+      if (Array.isArray(item.scale)) {
+        obj.setScale(item.scale[0], item.scale[1] !== undefined ? item.scale[1] : item.scale[0]);
+      } else {
+        obj.setScale(item.scale);
+      }
+    }
+    
     if (item.opacity !== undefined) obj.setAlpha(item.opacity);
     if (item.visible !== undefined) obj.setVisible(item.visible);
     if (item.flip_x !== undefined) obj.setFlipX(item.flip_x);
     if (item.flip_y !== undefined) obj.setFlipY(item.flip_y);
-
     // Efecto Parallax (Scroll Factor)
     if (item.scrollFactor !== undefined) {
       obj.setScrollFactor(item.scrollFactor, item.scrollFactor);
     }
-
     // Z-Index de capas
     if (item.layer !== undefined) {
       obj.setDepth(item.layer);
     }
-
     // Antialiasing (Pixel Art / Nearest Neighbor Filter)
     if (item.antialiasing !== undefined) {
       if (obj.texture) {
@@ -93,7 +86,6 @@ class StageProps {
         }
       }
     }
-
     // Efecto Chroma Key refactorizado para soportar objetos
     if (
       item.chromaKey !== undefined &&
@@ -102,7 +94,6 @@ class StageProps {
       let hexColor = "#000000";
       let tolerance = 0.1;
       let sensitivity = 0.1;
-
       if (typeof item.chromaKey === "object") {
         hexColor = item.chromaKey.color || "#000000";
         tolerance =
@@ -120,34 +111,26 @@ class StageProps {
         sensitivity =
           item.chromaSensitivity !== undefined ? item.chromaSensitivity : 0.1;
       }
-
       this.applyChromaKey(obj, hexColor, tolerance, sensitivity);
     }
   }
-
   static applyChromaKey(obj, hexColor, tolerance = 0.1, sensitivity = 0.1) {
     const pipelineName = "ChromaKeyPipeline";
-
-    // Registramos el pipeline dinámicamente si no existe aún usando la clase extraída
+    // Registramos el pipeline dinámicamente si no existe aún usando la clase extra
     if (!obj.scene.renderer.pipelines.has(pipelineName)) {
       obj.scene.renderer.pipelines.addPostPipeline(
         pipelineName,
         CustomChromaPipeline,
       );
     }
-
     let color = Phaser.Display.Color.HexStringToColor(hexColor);
-
     // 1. Aplicamos el pipeline al objeto
     obj.setPostPipeline(pipelineName);
-
     // 2. Usamos getPostPipeline para obtener la instancia real
     let pipelineInstance = obj.getPostPipeline(pipelineName);
-
     if (Array.isArray(pipelineInstance)) {
       pipelineInstance = pipelineInstance[pipelineInstance.length - 1];
     }
-
     // 3. Inyectamos los valores
     if (pipelineInstance) {
       pipelineInstance.uColor = [color.r / 255, color.g / 255, color.b / 255];
@@ -156,5 +139,4 @@ class StageProps {
     }
   }
 }
-
 window.StageProps = StageProps;

@@ -38,6 +38,7 @@
   "src/funkin/play/Cameras.js",
 
   "src/funkin/play/PlayScene.js",
+  "src/funkin/play/data/chars.js",
   "src/funkin/play/data/chart.js",
   "src/funkin/play/data/song.js",
   "src/funkin/play/data/stage.js",
@@ -56,6 +57,10 @@
   "src/funkin/play/stage/xml.js",
   "src/funkin/play/stage/props.js",
   "src/funkin/play/stage/bg.js",
+
+  "src/funkin/play/characters/animations.js",
+  "src/funkin/play/characters/logic.js",
+  "src/funkin/play/characters/renderer.js",
 
   "src/funkin/play/UI/arrows/directions.js",
   "src/funkin/play/UI/arrows/strumlines/positions.js",

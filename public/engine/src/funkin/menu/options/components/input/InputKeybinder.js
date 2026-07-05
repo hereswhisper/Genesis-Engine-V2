@@ -4,7 +4,6 @@ class InputKeybinder {
     this.parent = parent;
     this.scene = parent.scene;
   }
-
   startBinding(action, slotIndex) {
     const p = this.parent;
     this.cancelBinding();
@@ -22,7 +21,6 @@ class InputKeybinder {
       );
     }
   }
-
   cancelBinding() {
     const p = this.parent;
     p.isBinding = false;
@@ -36,7 +34,6 @@ class InputKeybinder {
       );
     });
   }
-
   updateKeybindVisual(action, slot, code) {
     // 1. CHEQUEO DE RESTRICCIONES (No duplicados)
     const restrictedActions = [
@@ -44,21 +41,17 @@ class InputKeybinder {
       "P2_NOTE_LEFT", "P2_NOTE_DOWN", "P2_NOTE_UP", "P2_NOTE_RIGHT",
       "PAUSE", "VOL_UP", "VOL_DOWN", "VOL_MUTE", "DEV_TOOLS"
     ];
-
-    // Ignoramos el chequeo de duplicados si la tecla presionada es Backspace (código 8 -> se hace 0) o 0
     if (code !== 0 && restrictedActions.includes(action)) {
       for (let rAction of restrictedActions) {
         const item = this.parent.currentOptions.find(i => i.options.action === rAction);
         if (item && item.options.defaults) {
           const existingSlot = item.options.defaults.indexOf(code);
-          // Si el código ya existe, bloquear siempre y cuando no sea exactamente el mismo slot
           if (existingSlot !== -1 && (rAction !== action || existingSlot !== slot)) {
             return false; // Error: Tecla duplicada
           }
         }
       }
     }
-
     // 2. APLICACIÓN VISUAL Y GUARDADO
     const box = this.parent.domMenu.node.querySelector(
       `[id="k-${action}-${slot}"]`,
@@ -71,7 +64,6 @@ class InputKeybinder {
         this.keyCodeToString(code),
         0.4,
       );
-
       // GUARDADO EN STORAGE GLOBAL
       const item = this.parent.currentOptions.find(
         (i) => i.options.action === action,
@@ -79,7 +71,12 @@ class InputKeybinder {
       if (item) {
         if (!item.options.defaults) item.options.defaults = [];
         item.options.defaults[slot] = code;
+        
+        // Guardado clásico para OptionsUI
         window.OptionsStorage.save(item.id, "keybind", item.options.defaults);
+        
+        // FIX: Forzamos guardado directo con la etiqueta exacta que usa Controls.js al iniciar
+        localStorage.setItem(`genesis_bind_${action}`, JSON.stringify(item.options.defaults));
         
         if (window.Controls && window.Controls.PCKeyBinds) {
           window.Controls.PCKeyBinds[action] = item.options.defaults;
@@ -88,7 +85,6 @@ class InputKeybinder {
     }
     return true; // Éxito
   }
-
   keyCodeToString(code) {
     if (!code || code === 0) return "NONE";
     const map = {

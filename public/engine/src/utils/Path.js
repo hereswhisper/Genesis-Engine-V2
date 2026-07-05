@@ -21,9 +21,6 @@ class Path {
   static img = "assets/images/";
 
   static chars = "assets/images/characters/";
-  static charsAtlas = "assets/images/characters/atlas/";
-  static charsSpecial = "assets/images/characters/special/";
-  static charsXML = "assets/images/characters/xml/";
 
   static menu = "assets/images/menu/";
   static menuBG = "assets/images/menu/bg/";

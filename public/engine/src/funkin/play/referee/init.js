@@ -6,6 +6,7 @@ class PlayReferee {
 
     this.cameras = new window.Cameras(this.scene);
     this.skins = new window.Skins(this.scene);
+    this.charsData = new window.CharsData(this.scene);
     this.chart = new window.Chart(this.scene);
     this.stage = new window.Stage(this.scene);
 
