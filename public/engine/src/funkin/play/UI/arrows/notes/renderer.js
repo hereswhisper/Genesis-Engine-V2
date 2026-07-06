@@ -124,7 +124,7 @@ class Note extends Phaser.GameObjects.Sprite {
     // --- AJUSTE VISUAL MANUAL ---
     // Empuja la textura hacia abajo independientemente de los milisegundos.
     // Puedes cambiar este 20 si necesitas que baje más o menos.
-    const MANUAL_Y_OFFSET = 0;
+    const MANUAL_Y_OFFSET = -5;
 
     // Se calcula la posición sumando al final los offsets visuales (X y Y) extraídos de la skin y el manual
     const currentX = this.baseX + deltaX + scrollOffsetX + this.visualOffsetX;
